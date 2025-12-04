@@ -122,6 +122,11 @@ func (o *orderRepository) GetAll(ctx context.Context, queryString entity.QuerySt
 
 	sqlMain := o.db.Preload("OrderItems").
 		Where("order_code ILIKE ? OR status ILIKE ?", "%"+queryString.Search+"%", "%"+queryString.Status+"%")
+
+	if queryString.BuyerID != 0 {
+		sqlMain = sqlMain.Where("buyer_id = ?", queryString.BuyerID)
+	}
+
 	if err := sqlMain.Model(&modelOrders).Count(&countData).Error; err != nil {
 		log.Errorf("[OrderRepository-1] GetAll: %v", err)
 		return nil, 0, 0, err

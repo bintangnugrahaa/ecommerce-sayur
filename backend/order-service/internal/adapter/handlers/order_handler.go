@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"order-service/config"
 	"order-service/internal/adapter"
@@ -20,10 +21,89 @@ type OrderHandlerInterface interface {
 	GetByIDAdmin(c echo.Context) error
 	CreateOrder(c echo.Context) error
 	UpdateStatus(c echo.Context) error
+	GetAllCustomer(c echo.Context) error
 }
 
 type orderHandler struct {
 	orderService service.OrderServiceInterface
+}
+
+// GetAllCustomer implements OrderHandlerInterface.
+func (o *orderHandler) GetAllCustomer(c echo.Context) error {
+	var (
+		ctx         = c.Request().Context()
+		respOrders  = []response.OrderCustomerList{}
+		jwtUserData = entity.JwtUserData{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[OrderHandler-1] GetAllCustomer: %s", "data token not found")
+		return c.JSON(http.StatusUnauthorized, response.ResponseError("data token not found"))
+	}
+
+	err := json.Unmarshal([]byte(user), &jwtUserData)
+	if err != nil {
+		log.Errorf("[OrderHandler-2] GetAllCustomer: %v", err)
+		return c.JSON(http.StatusBadRequest, response.ResponseError(err.Error()))
+	}
+
+	userID := jwtUserData.UserID
+
+	search := c.QueryParam("search")
+	var page int64 = 1
+	if pageStr := c.QueryParam("page"); pageStr != "" {
+		page, _ = conv.StringToInt64(pageStr)
+		if page <= 0 {
+			page = 1
+		}
+	}
+
+	var perPage int64 = 10
+	if perPageStr := c.QueryParam("perPage"); perPageStr != "" {
+		perPage, _ = conv.StringToInt64(perPageStr)
+		if perPage <= 0 {
+			perPage = 10
+		}
+	}
+
+	status := ""
+	if statusStr := c.QueryParam("status"); statusStr != "" {
+		status = statusStr
+	}
+
+	reqEntity := entity.QueryStringEntity{
+		Search:  search,
+		Status:  status,
+		Page:    page,
+		Limit:   perPage,
+		BuyerID: userID,
+	}
+
+	results, totalData, totalPage, err := o.orderService.GetAllCustomer(ctx, reqEntity, user)
+	if err != nil {
+		log.Errorf("[OrderHandler-3] GetAllCustomer: %v", err)
+		if err.Error() == "404" {
+			return c.JSON(http.StatusNotFound, response.ResponseError("data not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
+	}
+
+	for key, result := range results {
+		respOrders = append(respOrders, response.OrderCustomerList{
+			ID:            result.ID,
+			OrderCode:     result.OrderCode,
+			Status:        result.Status,
+			TotalAmount:   result.TotalAmount,
+			ProductImage:  result.OrderItems[key].ProductImage,
+			Weight:        result.OrderItems[key].ProductWeight,
+			Unit:          result.OrderItems[key].ProductUnit,
+			Quantity:      result.OrderItems[key].Quantity,
+			OrderDateTime: result.OrderDate,
+		})
+	}
+
+	return c.JSON(http.StatusOK, response.ResponseSuccessWithPagination("success", respOrders, page, totalData, totalPage, perPage))
 }
 
 // UpdateStatus implements OrderHandlerInterface.
@@ -276,6 +356,7 @@ func NewOrderHandler(orderService service.OrderServiceInterface, e *echo.Echo, c
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	authGroup := e.Group("/auth", mid.CheckToken())
 	authGroup.POST("/orders", ordHandler.CreateOrder, mid.DistanceCheck())
+	authGroup.GET("/orders", ordHandler.GetAllCustomer)
 
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/orders", ordHandler.GetAllAdmin)

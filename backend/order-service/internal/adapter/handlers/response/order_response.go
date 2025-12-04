@@ -24,6 +24,19 @@ type OrderAdminDetail struct {
 	OrderDetail   []OrderDetail `json:"customer_detail"`
 }
 
+type OrderCustomerList struct {
+	ID            int64  `json:"id"`
+	OrderCode     string `json:"order_code"`
+	ProductImage  string `json:"product_image"`
+	Status        string `json:"status"`
+	PaymentMethod string `json:"payment_method"`
+	TotalAmount   int64  `json:"total_amount"`
+	Weight        int64  `json:"weight"`
+	Unit          string `json:"unit"`
+	Quantity      int64  `json:"quantity"`
+	OrderDateTime string `json:"order_datetime"`
+}
+
 type CustomerOrder struct {
 	CustomerName    string `json:"customer_name"`
 	CustomerPhone   string `json:"customer_phone"`
