@@ -42,6 +42,7 @@ type Redis struct {
 type PublisherName struct {
 	ProductUpdateStock string `json:"product_update_stock"`
 	OrderPublish       string `json:"order_publish"`
+	EmailUpdateStatus  string `json:"email_update_status"`
 }
 
 type ElasticSearch struct {
@@ -93,6 +94,7 @@ func NewConfig() *Config {
 		PublisherName: PublisherName{
 			ProductUpdateStock: viper.GetString("PRODUCT_UPDATE_STOCK_NAME"),
 			OrderPublish:       viper.GetString("ORDER_PUBLISH_NAME"),
+			EmailUpdateStatus:  viper.GetString("EMAIL_UPDATE_STATUS_NAME"),
 		},
 		ElasticSearch: ElasticSearch{
 			Host: viper.GetString("ELASTICSEARCH_HOST"),

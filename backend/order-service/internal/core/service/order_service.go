@@ -20,6 +20,7 @@ type OrderServiceInterface interface {
 	GetAll(ctx context.Context, queryString entity.QueryStringEntity, accessToken string) ([]entity.OrderEntity, int64, int64, error)
 	GetByID(ctx context.Context, orderID int64, accessToken string) (*entity.OrderEntity, error)
 	CreateOrder(ctx context.Context, req entity.OrderEntity, accessToken string) (int64, error)
+	UpdateStatus(ctx context.Context, req entity.OrderEntity, accessToken string) error
 }
 
 type orderService struct {
@@ -28,6 +29,37 @@ type orderService struct {
 	httpClient        httpclient.HttpClient
 	publisherRabbitMQ message.PublishRabbitMQInterface
 	elasticRepo       repository.ElasticRepositoryInterface
+}
+
+// UpdateStatus implements OrderServiceInterface.
+func (o *orderService) UpdateStatus(ctx context.Context, req entity.OrderEntity, accessToken string) error {
+	buyerID, statusOrder, orderCode, err := o.repo.UpdateStatus(ctx, req)
+	if err != nil {
+		log.Errorf("[OrderService-1] UpdateStatus: %v", err)
+		return err
+	}
+
+	var token map[string]interface{}
+	err = json.Unmarshal([]byte(accessToken), &token)
+	if err != nil {
+		log.Errorf("[OrderService-2] UpdateStatus: %v", err)
+		return err
+	}
+
+	userResponse, err := o.httpClientUserService(buyerID, token["token"].(string))
+	if err != nil {
+		log.Errorf("[OrderService-3] UpdateStatus: %v", err)
+		return err
+	}
+
+	message := fmt.Sprintf("Hello,\n\nYour order with ID %s has been updated to status: %s.\n\nThank you for shopping with us!", orderCode, statusOrder)
+	err = o.publisherRabbitMQ.PublishSendEmailUpdateStatus(userResponse.Email, message)
+	if err != nil {
+		log.Errorf("[OrderService-4] UpdateStatus: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // CreateOrder implements OrderServiceInterface.

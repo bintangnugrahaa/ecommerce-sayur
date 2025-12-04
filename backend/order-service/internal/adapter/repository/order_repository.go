@@ -16,7 +16,7 @@ type OrderRepositoryInterface interface {
 	GetAll(ctx context.Context, queryString entity.QueryStringEntity) ([]entity.OrderEntity, int64, int64, error)
 	GetByID(ctx context.Context, orderID int64) (*entity.OrderEntity, error)
 	CreateOrder(ctx context.Context, req entity.OrderEntity) (int64, error)
-	EditOrder(ctx context.Context, req entity.OrderEntity) error
+	UpdateStatus(ctx context.Context, req entity.OrderEntity) (int64, string, string, error)
 	DeleteOrder(ctx context.Context, orderID int64) error
 
 	GetAllPublished(ctx context.Context) ([]entity.OrderEntity, error)
@@ -69,9 +69,49 @@ func (o *orderRepository) DeleteOrder(ctx context.Context, orderID int64) error 
 	panic("unimplemented")
 }
 
-// EditOrder implements OrderRepositoryInterface.
-func (o *orderRepository) EditOrder(ctx context.Context, req entity.OrderEntity) error {
-	panic("unimplemented")
+// UpdateStatus implements OrderRepositoryInterface.
+func (o *orderRepository) UpdateStatus(ctx context.Context, req entity.OrderEntity) (int64, string, string, error) {
+	modelOrder := model.Order{}
+
+	if err := o.db.Select("id", "order_code", "status", "buyer_id", "remarks").Where("id = ?", req.ID).First(&modelOrder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[OrderRepository-1] UpdateStatus: Order not found")
+			return 0, "", "", err
+		}
+		log.Errorf("[OrderRepository-2] UpdateStatus: %v", err)
+		return 0, "", "", err
+	}
+
+	if modelOrder.Status == "Pending" && (req.Status != "Confirmed" && req.Status != "Cancelled") {
+		log.Infof("[OrderRepository-3] UpdateStatus: Invalid status transition")
+		return 0, "", "", errors.New("400")
+	}
+
+	if modelOrder.Status == "Confirmed" && (req.Status != "Process" && req.Status != "Cancelled") {
+		log.Infof("[OrderRepository-4] UpdateStatus: Invalid status transition")
+		return 0, "", "", errors.New("400")
+	}
+
+	if modelOrder.Status == "Process" && (req.Status != "Sending" && req.Status != "Cancelled") {
+		log.Infof("[OrderRepository-5] UpdateStatus: Invalid status transition")
+		return 0, "", "", errors.New("400")
+	}
+
+	if modelOrder.Status == "Sending" && (req.Status != "Done" && req.Status != "Cancelled") {
+		log.Infof("[OrderRepository-6] UpdateStatus: Invalid status transition")
+		return 0, "", "", errors.New("400")
+	}
+
+	modelOrder.Status = req.Status
+	modelOrder.Remarks = req.Remarks
+
+	if err := o.db.UpdateColumns(&modelOrder).Error; err != nil {
+		log.Errorf("[OrderRepository-7] UpdateStatus: %v", err)
+		return 0, "", "", err
+	}
+
+	return modelOrder.BuyerID, modelOrder.Status, modelOrder.OrderCode, nil
 }
 
 // GetAll implements OrderRepositoryInterface.

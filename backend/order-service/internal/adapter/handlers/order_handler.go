@@ -19,10 +19,68 @@ type OrderHandlerInterface interface {
 	GetAllAdmin(c echo.Context) error
 	GetByIDAdmin(c echo.Context) error
 	CreateOrder(c echo.Context) error
+	UpdateStatus(c echo.Context) error
 }
 
 type orderHandler struct {
 	orderService service.OrderServiceInterface
+}
+
+// UpdateStatus implements OrderHandlerInterface.
+func (o *orderHandler) UpdateStatus(c echo.Context) error {
+	var (
+		ctx = c.Request().Context()
+		req = request.OrderUpdateStatusRequest{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[OrderHandler-1] UpdateStatus: %s", "data token not found")
+		return c.JSON(http.StatusUnauthorized, response.ResponseError("data token not found"))
+	}
+
+	if err := c.Bind(&req); err != nil {
+		log.Errorf("[OrderHandler-2] UpdateStatus: %v", err)
+		return c.JSON(http.StatusBadRequest, response.ResponseError(err.Error()))
+	}
+
+	if err := c.Validate(&req); err != nil {
+		log.Errorf("[OrderHandler-3] UpdateStatus: %v", err)
+		return c.JSON(http.StatusUnprocessableEntity, response.ResponseError(err.Error()))
+	}
+
+	idParams := c.Param("orderID")
+	if idParams == "" {
+		log.Errorf("[OrderHandler-4] UpdateStatus: %s", "orderID not found")
+		return c.JSON(http.StatusNotFound, response.ResponseError("orderID not found"))
+	}
+
+	orderID, err := conv.StringToInt64(idParams)
+	if err != nil {
+		log.Errorf("[OrderHandler-5] UpdateStatus: %v", err)
+		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
+	}
+
+	reqEntity := entity.OrderEntity{
+		Remarks: req.Remarks,
+		Status:  req.Status,
+		ID:      orderID,
+	}
+
+	err = o.orderService.UpdateStatus(ctx, reqEntity, user)
+	if err != nil {
+		log.Errorf("[OrderHandler-6] UpdateStatus: %v", err)
+		if err.Error() == "404" {
+			return c.JSON(http.StatusNotFound, response.ResponseError("data not found"))
+		}
+
+		if err.Error() == "400" {
+			return c.JSON(http.StatusBadRequest, response.ResponseError("Invalid status transition"))
+		}
+		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
+	}
+
+	return c.JSON(http.StatusOK, response.ResponseSuccess("success", nil))
 }
 
 // CreateOrder implements OrderHandlerInterface.
@@ -222,6 +280,7 @@ func NewOrderHandler(orderService service.OrderServiceInterface, e *echo.Echo, c
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/orders", ordHandler.GetAllAdmin)
 	adminGroup.GET("/orders/:orderID", ordHandler.GetByIDAdmin)
+	adminGroup.PUT("/orders/:orderID/status", ordHandler.UpdateStatus)
 
 	return ordHandler
 }

@@ -42,7 +42,7 @@ func RunServer() {
 
 	messageRabbit := message.NewPublisherRabbitMQ(cfg)
 
-	orderService := service.NewOrderService(orderRepo, cfg, httpClient, messageRabbit)
+	orderService := service.NewOrderService(orderRepo, cfg, httpClient, messageRabbit, nil)
 
 	e := echo.New()
 	e.Use(middleware.CORS())
