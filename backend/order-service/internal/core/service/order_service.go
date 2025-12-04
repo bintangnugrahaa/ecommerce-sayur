@@ -22,6 +22,7 @@ type OrderServiceInterface interface {
 	CreateOrder(ctx context.Context, req entity.OrderEntity, accessToken string) (int64, error)
 	UpdateStatus(ctx context.Context, req entity.OrderEntity, accessToken string) error
 	GetAllCustomer(ctx context.Context, queryString entity.QueryStringEntity, accessToken string) ([]entity.OrderEntity, int64, int64, error)
+	GetOrderByOrderCode(ctx context.Context, orderCode, accessToken string) (*entity.OrderEntity, error)
 }
 
 type orderService struct {
@@ -30,6 +31,47 @@ type orderService struct {
 	httpClient        httpclient.HttpClient
 	publisherRabbitMQ message.PublishRabbitMQInterface
 	elasticRepo       repository.ElasticRepositoryInterface
+}
+
+// GetOrderByOrderCode implements OrderServiceInterface.
+func (o *orderService) GetOrderByOrderCode(ctx context.Context, orderCode string, accessToken string) (*entity.OrderEntity, error) {
+	result, err := o.repo.GetOrderByOrderCode(ctx, orderCode)
+	if err != nil {
+		log.Errorf("[OrderService-1] GetOrderByOrderCode: %v", err)
+		return nil, err
+	}
+
+	var token map[string]interface{}
+	err = json.Unmarshal([]byte(accessToken), &token)
+	if err != nil {
+		log.Errorf("[OrderService-2] GetOrderByOrderCode: %v", err)
+		return nil, err
+	}
+
+	userResponse, err := o.httpClientUserService(result.BuyerID, token["token"].(string), true)
+	if err != nil {
+		log.Errorf("[OrderService-3] GetOrderByOrderCode: %v", err)
+		return nil, err
+	}
+
+	result.BuyerName = userResponse.Name
+	result.BuyerEmail = userResponse.Email
+	result.BuyerPhone = userResponse.Phone
+	result.BuyerAddress = userResponse.Address
+
+	for key, val := range result.OrderItems {
+		productResponse, err := o.httpClientProductService(val.ProductID, token["token"].(string), true)
+		if err != nil {
+			log.Errorf("[OrderService-4] GetOrderByOrderCode: %v", err)
+			return nil, err
+		}
+
+		result.OrderItems[key].ProductImage = productResponse.ProductImage
+		result.OrderItems[key].ProductName = productResponse.ProductName
+		result.OrderItems[key].Price = int64(productResponse.SalePrice)
+	}
+
+	return result, nil
 }
 
 // GetAllCustomer implements OrderServiceInterface.

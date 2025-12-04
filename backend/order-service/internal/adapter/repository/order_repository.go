@@ -19,7 +19,7 @@ type OrderRepositoryInterface interface {
 	UpdateStatus(ctx context.Context, req entity.OrderEntity) (int64, string, string, error)
 	DeleteOrder(ctx context.Context, orderID int64) error
 
-	GetAllPublished(ctx context.Context) ([]entity.OrderEntity, error)
+	GetOrderByOrderCode(ctx context.Context, orderCode string) (*entity.OrderEntity, error)
 }
 
 type orderRepository struct {
@@ -168,9 +168,41 @@ func (o *orderRepository) GetAll(ctx context.Context, queryString entity.QuerySt
 	return entities, countData, int64(totalPage), nil
 }
 
-// GetAllPublished implements OrderRepositoryInterface.
-func (o *orderRepository) GetAllPublished(ctx context.Context) ([]entity.OrderEntity, error) {
-	panic("unimplemented")
+// GetOrderByOrderCode implements OrderRepositoryInterface.
+func (o *orderRepository) GetOrderByOrderCode(ctx context.Context, orderCode string) (*entity.OrderEntity, error) {
+	var modelOrder model.Order
+
+	if err := o.db.Preload("OrderItems").Where("order_code =?", orderCode).First(&modelOrder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[OrderRepository-1] GetOrderByOrderCode: Order not found")
+			return nil, err
+		}
+		log.Errorf("[OrderRepository-2] GetOrderByOrderCode: %v", err)
+		return nil, err
+	}
+
+	orderItemEntities := []entity.OrderItemEntity{}
+	for _, item := range modelOrder.OrderItems {
+		orderItemEntities = append(orderItemEntities, entity.OrderItemEntity{
+			ID:        item.ID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+		})
+	}
+
+	return &entity.OrderEntity{
+		ID:           modelOrder.ID,
+		OrderCode:    modelOrder.OrderCode,
+		Status:       modelOrder.Status,
+		BuyerID:      modelOrder.BuyerID,
+		OrderDate:    modelOrder.OrderDate.Format("2006-01-02 15:04:05"),
+		TotalAmount:  int64(modelOrder.TotalAmount),
+		OrderItems:   orderItemEntities,
+		Remarks:      modelOrder.Remarks,
+		ShippingType: modelOrder.ShippingType,
+		ShippingFee:  int64(modelOrder.ShippingFee),
+	}, nil
 }
 
 // GetByID implements OrderRepositoryInterface.

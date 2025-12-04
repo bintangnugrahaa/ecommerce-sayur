@@ -22,10 +22,67 @@ type OrderHandlerInterface interface {
 	CreateOrder(c echo.Context) error
 	UpdateStatus(c echo.Context) error
 	GetAllCustomer(c echo.Context) error
+	GetOrderByOrderCode(c echo.Context) error
 }
 
 type orderHandler struct {
 	orderService service.OrderServiceInterface
+}
+
+// GetOrderByOrderCode implements OrderHandlerInterface.
+func (o *orderHandler) GetOrderByOrderCode(c echo.Context) error {
+	var (
+		ctx       = c.Request().Context()
+		respOrder = response.OrderAdminDetail{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[OrderHandler-1] GetOrderByOrderCode: %s", "data token not found")
+		return c.JSON(http.StatusNotFound, response.ResponseError("data token not found"))
+	}
+
+	orderCode := c.Param("orderCode")
+	if orderCode == "" {
+		log.Errorf("[OrderHandler-2] GetOrderByOrderCode: %s", "orderCode not found")
+		return c.JSON(http.StatusNotFound, response.ResponseError("orderCode not found"))
+	}
+
+	order, err := o.orderService.GetOrderByOrderCode(ctx, orderCode, user)
+	if err != nil {
+		log.Errorf("[OrderHandler-3] GetOrderByOrderCode: %v", err)
+		if err.Error() == "404" {
+			return c.JSON(http.StatusNotFound, response.ResponseError("data not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
+	}
+
+	respOrder.ID = order.ID
+	respOrder.OrderCode = order.OrderCode
+	respOrder.Status = order.Status
+	respOrder.TotalAmount = order.TotalAmount
+	respOrder.OrderDateTime = order.OrderDate
+	respOrder.ShippingFee = order.ShippingFee
+	respOrder.Remarks = order.Remarks
+	respOrder.PaymentMethod = order.PaymentMethod
+	respOrder.Customer = response.CustomerOrder{
+		CustomerName:    order.BuyerName,
+		CustomerPhone:   order.BuyerPhone,
+		CustomerAddress: order.BuyerAddress,
+		CustomerEmail:   order.BuyerEmail,
+		CustomerID:      order.BuyerID,
+	}
+
+	for _, item := range order.OrderItems {
+		respOrder.OrderDetail = append(respOrder.OrderDetail, response.OrderDetail{
+			ProductName:  item.ProductName,
+			ProductImage: item.ProductImage,
+			ProductPrice: item.Price,
+			Quantity:     item.Quantity,
+		})
+	}
+
+	return c.JSON(http.StatusOK, response.ResponseSuccess("success", respOrder))
 }
 
 // GetAllCustomer implements OrderHandlerInterface.
@@ -357,6 +414,7 @@ func NewOrderHandler(orderService service.OrderServiceInterface, e *echo.Echo, c
 	authGroup := e.Group("/auth", mid.CheckToken())
 	authGroup.POST("/orders", ordHandler.CreateOrder, mid.DistanceCheck())
 	authGroup.GET("/orders", ordHandler.GetAllCustomer)
+	authGroup.GET("/orders/:orderCode/code", ordHandler.GetOrderByOrderCode)
 
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/orders", ordHandler.GetAllAdmin)
