@@ -40,9 +40,10 @@ type Redis struct {
 }
 
 type PublisherName struct {
-	ProductUpdateStock string `json:"product_update_stock"`
-	OrderPublish       string `json:"order_publish"`
-	EmailUpdateStatus  string `json:"email_update_status"`
+	ProductUpdateStock      string `json:"product_update_stock"`
+	OrderPublish            string `json:"order_publish"`
+	EmailUpdateStatus       string `json:"email_update_status"`
+	PublisherPaymentSuccess string `json:"publisher_payment_success"`
 }
 
 type ElasticSearch struct {
@@ -92,9 +93,10 @@ func NewConfig() *Config {
 			Port: viper.GetString("REDIS_PORT"),
 		},
 		PublisherName: PublisherName{
-			ProductUpdateStock: viper.GetString("PRODUCT_UPDATE_STOCK_NAME"),
-			OrderPublish:       viper.GetString("ORDER_PUBLISH_NAME"),
-			EmailUpdateStatus:  viper.GetString("EMAIL_UPDATE_STATUS_NAME"),
+			ProductUpdateStock:      viper.GetString("PRODUCT_UPDATE_STOCK_NAME"),
+			OrderPublish:            viper.GetString("ORDER_PUBLISH_NAME"),
+			EmailUpdateStatus:       viper.GetString("EMAIL_UPDATE_STATUS_NAME"),
+			PublisherPaymentSuccess: viper.GetString("PUBLISHER_PAYMENT_SUCCESS"),
 		},
 		ElasticSearch: ElasticSearch{
 			Host: viper.GetString("ELASTICSEARCH_HOST"),
