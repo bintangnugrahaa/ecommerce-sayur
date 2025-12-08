@@ -24,5 +24,5 @@ func Int64PointerToInt64(num *int64) int64 {
 }
 
 func GenerateOrderCode() string {
-	return fmt.Sprintf("ORD-%s-%d", time.Now().Format("20060102150405"), rand.Intn(1000000))
+	return fmt.Sprintf("ORDER-%s-%d", time.Now().Format("20060102150405"), rand.Intn(100000))
 }

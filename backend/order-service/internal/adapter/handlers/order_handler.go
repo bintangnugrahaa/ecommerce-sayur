@@ -22,41 +22,14 @@ type OrderHandlerInterface interface {
 	CreateOrder(c echo.Context) error
 	UpdateStatus(c echo.Context) error
 	GetAllCustomer(c echo.Context) error
-	GetDetailCustomer(c echo.Context) error
-	DeleteByID(c echo.Context) error
 	GetOrderByOrderCode(c echo.Context) error
-	GetPublicOrderByOrderCode(c echo.Context) error
 }
 
 type orderHandler struct {
 	orderService service.OrderServiceInterface
 }
 
-func (o *orderHandler) GetPublicOrderByOrderCode(c echo.Context) error {
-	var (
-		ctx = c.Request().Context()
-	)
-
-	orderCode := c.Param("orderCode")
-	if orderCode == "" {
-		log.Errorf("[OrderHandler-1] GetOrderByOrderCode: %s", "orderCode not found")
-		return c.JSON(http.StatusNotFound, response.ResponseError("orderCode not found"))
-	}
-
-	order, err := o.orderService.GetPublicOrderIDByOrderCode(ctx, orderCode)
-	if err != nil {
-		log.Errorf("[OrderHandler-2] GetOrderByOrderCode: %v", err)
-		if err.Error() == "404" {
-			return c.JSON(http.StatusNotFound, response.ResponseError("data not found"))
-		}
-		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
-	}
-
-	return c.JSON(http.StatusOK, response.ResponseSuccess("success", map[string]int64{
-		"orderID": order,
-	}))
-}
-
+// GetOrderByOrderCode implements OrderHandlerInterface.
 func (o *orderHandler) GetOrderByOrderCode(c echo.Context) error {
 	var (
 		ctx       = c.Request().Context()
@@ -88,106 +61,10 @@ func (o *orderHandler) GetOrderByOrderCode(c echo.Context) error {
 	respOrder.OrderCode = order.OrderCode
 	respOrder.Status = order.Status
 	respOrder.TotalAmount = order.TotalAmount
-	respOrder.OrderDatetime = order.OrderDate
+	respOrder.OrderDateTime = order.OrderDate
 	respOrder.ShippingFee = order.ShippingFee
 	respOrder.Remarks = order.Remarks
 	respOrder.PaymentMethod = order.PaymentMethod
-	respOrder.Customer = response.CustomerOrder{
-		CustomerName:    order.BuyerName,
-		CustomerPhone:   order.BuyerPhone,
-		CustomerAddress: order.BuyerAddress,
-		CustomerEmail:   order.BuyerEmail,
-		CustomerID:      order.BuyerID,
-	}
-
-	for _, item := range order.OrderItems {
-		respOrder.OrderDetail = append(respOrder.OrderDetail, response.OrderDetail{
-			ProductName:  item.ProductName,
-			ProductImage: item.ProductImage,
-			ProductPrice: item.Price,
-			Quantity:     item.Quantity,
-		})
-	}
-
-	return c.JSON(http.StatusOK, response.ResponseSuccess("success", respOrder))
-}
-
-func (o *orderHandler) DeleteByID(c echo.Context) error {
-	var (
-		ctx = c.Request().Context()
-	)
-
-	user := c.Get("user").(string)
-	if user == "" {
-		log.Errorf("[OrderHandler-1] DeleteByID: %s", "data token not found")
-		return c.JSON(http.StatusNotFound, response.ResponseError("data token not found"))
-	}
-
-	idParams := c.Param("orderID")
-	if idParams == "" {
-		log.Errorf("[OrderHandler-2] DeleteByID: %s", "orderID not found")
-		return c.JSON(http.StatusNotFound, response.ResponseError("orderID not found"))
-	}
-
-	orderID, err := conv.StringToInt64(idParams)
-	if err != nil {
-		log.Errorf("[OrderHandler-3] DeleteByID: %v", err)
-		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
-	}
-
-	err = o.orderService.DeleteByID(ctx, orderID)
-	if err != nil {
-		log.Errorf("[OrderHandler-4] DeleteByID: %v", err)
-		if err.Error() == "404" {
-			return c.JSON(http.StatusNotFound, response.ResponseError("data not found"))
-		}
-		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
-	}
-
-	return c.JSON(http.StatusOK, response.ResponseSuccess("success", nil))
-}
-
-func (o *orderHandler) GetDetailCustomer(c echo.Context) error {
-	var (
-		ctx       = c.Request().Context()
-		respOrder = response.OrderAdminDetail{}
-	)
-
-	user := c.Get("user").(string)
-	if user == "" {
-		log.Errorf("[OrderHandler-1] GetDetailCustomer: %s", "data token not found")
-		return c.JSON(http.StatusNotFound, response.ResponseError("data token not found"))
-	}
-
-	orderIDStr := c.Param("orderID")
-	if orderIDStr == "" {
-		log.Errorf("[OrderHandler-2] GetDetailCustomer: %s", "orderID not found")
-		return c.JSON(http.StatusNotFound, response.ResponseError("orderID not found"))
-	}
-
-	orderID, err := conv.StringToInt64(orderIDStr)
-	if err != nil {
-		log.Errorf("[OrderHandler-3] GetDetailCustomer: %v", err)
-		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
-	}
-
-	order, err := o.orderService.GetDetailCustomer(ctx, orderID, user)
-	if err != nil {
-		log.Errorf("[OrderHandler-4] GetDetailCustomer: %v", err)
-		if err.Error() == "404" {
-			return c.JSON(http.StatusNotFound, response.ResponseError("data not found"))
-		}
-		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
-	}
-
-	respOrder.ID = order.ID
-	respOrder.OrderCode = order.OrderCode
-	respOrder.Status = order.Status
-	respOrder.TotalAmount = order.TotalAmount
-	respOrder.OrderDatetime = order.OrderDate
-	respOrder.ShippingFee = order.ShippingFee
-	respOrder.ShippingType = order.ShippingType
-	respOrder.Remarks = order.Remarks
 	respOrder.Customer = response.CustomerOrder{
 		CustomerName:    order.BuyerName,
 		CustomerPhone:   order.BuyerPhone,
@@ -274,7 +151,6 @@ func (o *orderHandler) GetAllCustomer(c echo.Context) error {
 			ID:            result.ID,
 			OrderCode:     result.OrderCode,
 			Status:        result.Status,
-			ProductName:   result.OrderItems[0].ProductName,
 			TotalAmount:   result.TotalAmount,
 			ProductImage:  result.OrderItems[0].ProductImage,
 			Weight:        result.OrderItems[0].ProductWeight,
@@ -344,7 +220,7 @@ func (o *orderHandler) UpdateStatus(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.ResponseSuccess("success", nil))
 }
 
-// GetAllAdmin implements OrderHandlerInterface.
+// CreateOrder implements OrderHandlerInterface.
 func (o *orderHandler) CreateOrder(c echo.Context) error {
 	var (
 		ctx = c.Request().Context()
@@ -364,7 +240,7 @@ func (o *orderHandler) CreateOrder(c echo.Context) error {
 
 	if err := c.Validate(&req); err != nil {
 		log.Errorf("[OrderHandler-3] CreateOrder: %v", err)
-		return c.JSON(http.StatusUnprocessableEntity, response.ResponseError(err.Error()))
+		return c.JSON(http.StatusBadRequest, response.ResponseError(err.Error()))
 	}
 
 	reqEntity := entity.OrderEntity{
@@ -392,12 +268,13 @@ func (o *orderHandler) CreateOrder(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
 	}
 
-	return c.JSON(http.StatusCreated, response.ResponseSuccess("success", map[string]interface{}{
+	return c.JSON(http.StatusOK, response.ResponseSuccess("success", map[string]interface{}{
 		"order_id": orderID,
 	}))
+
 }
 
-// GetAllAdmin implements OrderHandlerInterface.
+// GetByIDAdmin implements OrderHandlerInterface.
 func (o *orderHandler) GetByIDAdmin(c echo.Context) error {
 	var (
 		ctx       = c.Request().Context()
@@ -406,25 +283,25 @@ func (o *orderHandler) GetByIDAdmin(c echo.Context) error {
 
 	user := c.Get("user").(string)
 	if user == "" {
-		log.Errorf("[OrderHandler-1] GetByIDAdmin: %s", "data token not found")
+		log.Errorf("[OrderHandler-1] GetAllAdmin: %s", "data token not found")
 		return c.JSON(http.StatusNotFound, response.ResponseError("data token not found"))
 	}
 
 	orderIDStr := c.Param("orderID")
 	if orderIDStr == "" {
-		log.Errorf("[OrderHandler-2] GetByIDAdmin: %s", "orderID not found")
-		return c.JSON(http.StatusNotFound, response.ResponseError("orderID not found"))
+		log.Errorf("[OrderHandler-2] GetAllAdmin: %s", "orderID not found")
+		return c.JSON(http.StatusBadRequest, response.ResponseError("orderID not found"))
 	}
 
 	orderID, err := conv.StringToInt64(orderIDStr)
 	if err != nil {
-		log.Errorf("[OrderHandler-3] GetByIDAdmin: %v", err)
-		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
+		log.Errorf("[OrderHandler-3] GetAllAdmin: %v", err)
+		return c.JSON(http.StatusBadRequest, response.ResponseError(err.Error()))
 	}
 
 	order, err := o.orderService.GetByID(ctx, orderID, user)
 	if err != nil {
-		log.Errorf("[OrderHandler-4] GetByIDAdmin: %v", err)
+		log.Errorf("[OrderHandler-4] GetAllAdmin: %v", err)
 		if err.Error() == "404" {
 			return c.JSON(http.StatusNotFound, response.ResponseError("data not found"))
 		}
@@ -435,7 +312,7 @@ func (o *orderHandler) GetByIDAdmin(c echo.Context) error {
 	respOrder.OrderCode = order.OrderCode
 	respOrder.Status = order.Status
 	respOrder.TotalAmount = order.TotalAmount
-	respOrder.OrderDatetime = order.OrderDate
+	respOrder.OrderDateTime = order.OrderDate
 	respOrder.ShippingFee = order.ShippingFee
 	respOrder.Remarks = order.Remarks
 	respOrder.Customer = response.CustomerOrder{
@@ -446,16 +323,17 @@ func (o *orderHandler) GetByIDAdmin(c echo.Context) error {
 		CustomerID:      order.BuyerID,
 	}
 
-	for _, item := range order.OrderItems {
+	for _, val := range order.OrderItems {
 		respOrder.OrderDetail = append(respOrder.OrderDetail, response.OrderDetail{
-			ProductName:  item.ProductName,
-			ProductImage: item.ProductImage,
-			ProductPrice: item.Price,
-			Quantity:     item.Quantity,
+			ProductName:  val.ProductName,
+			ProductImage: val.ProductImage,
+			ProductPrice: val.Price,
+			Quantity:     val.Quantity,
 		})
 	}
 
 	return c.JSON(http.StatusOK, response.ResponseSuccess("success", respOrder))
+
 }
 
 // GetAllAdmin implements OrderHandlerInterface.
@@ -509,19 +387,19 @@ func (o *orderHandler) GetAllAdmin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
 	}
 
-	for _, result := range results {
+	for key := range results {
 		var productImage string
-		for _, val := range result.OrderItems {
+		for _, val := range results[key].OrderItems {
 			productImage = val.ProductImage
 		}
 
 		respOrders = append(respOrders, response.OrderAdminList{
-			ID:           result.ID,
-			OrderCode:    result.OrderCode,
-			Status:       result.Status,
-			TotalAmount:  result.TotalAmount,
+			ID:           results[key].ID,
+			OrderCode:    results[key].OrderCode,
+			Status:       results[key].Status,
+			TotalAmount:  results[key].TotalAmount,
 			ProductImage: productImage,
-			CustomerName: result.BuyerName,
+			CustomerName: results[key].BuyerName,
 		})
 	}
 
@@ -533,18 +411,15 @@ func NewOrderHandler(orderService service.OrderServiceInterface, e *echo.Echo, c
 
 	e.Use(middleware.Recover())
 	mid := adapter.NewMiddlewareAdapter(cfg)
-	e.GET("public/orders/:orderCode/code", ordHandler.GetPublicOrderByOrderCode)
-	authGroup := e.Group("auth", mid.CheckToken())
+	authGroup := e.Group("/auth", mid.CheckToken())
 	authGroup.POST("/orders", ordHandler.CreateOrder, mid.DistanceCheck())
 	authGroup.GET("/orders", ordHandler.GetAllCustomer)
-	authGroup.GET("/orders/:orderID", ordHandler.GetDetailCustomer)
 	authGroup.GET("/orders/:orderCode/code", ordHandler.GetOrderByOrderCode)
 
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/orders", ordHandler.GetAllAdmin)
 	adminGroup.GET("/orders/:orderID", ordHandler.GetByIDAdmin)
 	adminGroup.PUT("/orders/:orderID/status", ordHandler.UpdateStatus)
-	adminGroup.DELETE("/orders/:orderID", ordHandler.DeleteByID)
 
 	return ordHandler
 }

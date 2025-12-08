@@ -8,7 +8,7 @@ type App struct {
 
 	JwtSecretKey string `json:"jwt_secret_key"`
 
-	ServerTimeOut     int    `json:"server_timeout"`
+	ServerTimeOut     int    `json:"server_time_out"`
 	ProductServiceUrl string `json:"product_service_url"`
 	UserServiceUrl    string `json:"user_service_url"`
 
@@ -43,7 +43,6 @@ type PublisherName struct {
 	ProductUpdateStock      string `json:"product_update_stock"`
 	OrderPublish            string `json:"order_publish"`
 	EmailUpdateStatus       string `json:"email_update_status"`
-	PublisherDeleteOrder    string `json:"publisher_delete_order"`
 	PublisherPaymentSuccess string `json:"publisher_payment_success"`
 	PublisherUpdateStatus   string `json:"publisher_update_status"`
 }
@@ -65,10 +64,10 @@ func NewConfig() *Config {
 	return &Config{
 		App: App{
 			AppPort: viper.GetString("APP_PORT"),
-			AppEnv:  viper.GetString("APP_PORT"),
+			AppEnv:  viper.GetString("APP_ENV"),
 
 			JwtSecretKey:      viper.GetString("JWT_SECRET_KEY"),
-			ServerTimeOut:     viper.GetInt("SERVER_TIMEOUT"),
+			ServerTimeOut:     viper.GetInt("SERVER_TIME_OUT"),
 			ProductServiceUrl: viper.GetString("PRODUCT_SERVICE_URL"),
 			UserServiceUrl:    viper.GetString("USER_SERVICE_URL"),
 			LatitudeRef:       viper.GetString("LATITUDE_REF"),
@@ -98,7 +97,6 @@ func NewConfig() *Config {
 			ProductUpdateStock:      viper.GetString("PRODUCT_UPDATE_STOCK_NAME"),
 			OrderPublish:            viper.GetString("ORDER_PUBLISH_NAME"),
 			EmailUpdateStatus:       viper.GetString("EMAIL_UPDATE_STATUS_NAME"),
-			PublisherDeleteOrder:    viper.GetString("PUBLISHER_DELETE_ORDER"),
 			PublisherPaymentSuccess: viper.GetString("PUBLISHER_PAYMENT_SUCCESS"),
 			PublisherUpdateStatus:   viper.GetString("PUBLISHER_UPDATE_STATUS"),
 		},

@@ -38,7 +38,7 @@ func (o *Options) Connect() {
 
 	httpClient := &http.Client{
 		Timeout:   time.Duration(o.timeout) * time.Second,
-		Transport: &loggingTransport{e.Logger},
+		Transport: &loggingTransport{logger: e.Logger},
 	}
 
 	o.http = httpClient

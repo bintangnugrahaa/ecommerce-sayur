@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"log"
 	"order-service/config"
 	"order-service/internal/adapter/handlers"
 	httpclient "order-service/internal/adapter/http_client"
@@ -17,7 +18,6 @@ import (
 	"github.com/go-playground/validator/v10/translations/en"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
 )
 
 func RunServer() {
@@ -28,20 +28,21 @@ func RunServer() {
 		return
 	}
 
-	elasticInit, err := cfg.InitElasticsearch()
-	if err != nil {
-		log.Fatalf("[RunServer-2] %v", err)
-		return
-	}
+	// elasticInit, err := cfg.InitElasticsearch()
+	// if err != nil {
+	// 	log.Fatalf("[RunServer-2] %v", err)
+	// 	return
+	// }
+
+	// storageHandler := storage.NewSupabase(cfg)
 
 	orderRepo := repository.NewOrderRepository(db.DB)
-	elasticRepo := repository.NewElasticRepository(elasticInit)
 
 	httpClient := httpclient.NewHttpClient(cfg)
 
 	messageRabbit := message.NewPublisherRabbitMQ(cfg)
 
-	orderService := service.NewOrderService(orderRepo, cfg, httpClient, messageRabbit, elasticRepo)
+	orderService := service.NewOrderService(orderRepo, cfg, httpClient, messageRabbit, nil)
 
 	e := echo.New()
 	e.Use(middleware.CORS())
