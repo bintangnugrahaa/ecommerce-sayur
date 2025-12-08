@@ -13,6 +13,8 @@ type ChildProductResponseEntity struct {
 	Stock        int     `json:"stock"`
 	RegulerPrice float64 `json:"reguler_price"`
 	SalePrice    float64 `json:"sale_price"`
+	Unit         string  `json:"unit"`
+	Image        string  `json:"image"`
 }
 
 type ProductResponseEntity struct {

@@ -146,16 +146,16 @@ func (o *orderHandler) GetAllCustomer(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
 	}
 
-	for key, result := range results {
+	for _, result := range results {
 		respOrders = append(respOrders, response.OrderCustomerList{
 			ID:            result.ID,
 			OrderCode:     result.OrderCode,
 			Status:        result.Status,
 			TotalAmount:   result.TotalAmount,
-			ProductImage:  result.OrderItems[key].ProductImage,
-			Weight:        result.OrderItems[key].ProductWeight,
-			Unit:          result.OrderItems[key].ProductUnit,
-			Quantity:      result.OrderItems[key].Quantity,
+			ProductImage:  result.OrderItems[0].ProductImage,
+			Weight:        result.OrderItems[0].ProductWeight,
+			Unit:          result.OrderItems[0].ProductUnit,
+			Quantity:      result.OrderItems[0].Quantity,
 			OrderDateTime: result.OrderDate,
 		})
 	}
