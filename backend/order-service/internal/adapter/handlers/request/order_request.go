@@ -5,6 +5,7 @@ type CreateOrderRequest struct {
 	OrderDate    string               `json:"order_date" validate:"required"`
 	TotalAmount  int64                `json:"total_amount" validate:"required"`
 	ShippingType string               `json:"shipping_type" validate:"required"`
+	PaymentType  string               `json:"payment_type" validate:"required"`
 	Remarks      string               `json:"remarks"`
 	OrderTime    string               `json:"order_time" validate:"required"`
 	OrderDetails []OrderDetailRequest `json:"order_details" validate:"required"`

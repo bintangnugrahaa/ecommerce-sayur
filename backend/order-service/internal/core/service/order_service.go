@@ -48,7 +48,12 @@ func (o *orderService) GetOrderByOrderCode(ctx context.Context, orderCode string
 		return nil, err
 	}
 
-	userResponse, err := o.httpClientUserService(result.BuyerID, token["token"].(string), true)
+	isCustomer := false
+	if token["role_name"].(string) != "Super Admin" {
+		isCustomer = true
+	}
+
+	userResponse, err := o.httpClientUserService(result.BuyerID, token["token"].(string), isCustomer)
 	if err != nil {
 		log.Errorf("[OrderService-3] GetOrderByOrderCode: %v", err)
 		return nil, err
@@ -60,7 +65,7 @@ func (o *orderService) GetOrderByOrderCode(ctx context.Context, orderCode string
 	result.BuyerAddress = userResponse.Address
 
 	for key, val := range result.OrderItems {
-		productResponse, err := o.httpClientProductService(val.ProductID, token["token"].(string), true)
+		productResponse, err := o.httpClientProductService(val.ProductID, token["token"].(string), isCustomer)
 		if err != nil {
 			log.Errorf("[OrderService-4] GetOrderByOrderCode: %v", err)
 			return nil, err
@@ -200,7 +205,12 @@ func (o *orderService) GetByID(ctx context.Context, orderID int64, accessToken s
 		return nil, err
 	}
 
-	userResponse, err := o.httpClientUserService(result.BuyerID, token["token"].(string), false)
+	isCustomer := false
+	if token["role_name"].(string) != "Super Admin" {
+		isCustomer = true
+	}
+
+	userResponse, err := o.httpClientUserService(result.BuyerID, token["token"].(string), isCustomer)
 	if err != nil {
 		log.Errorf("[OrderService-2] GetByID: %v", err)
 		return nil, err
@@ -212,7 +222,7 @@ func (o *orderService) GetByID(ctx context.Context, orderID int64, accessToken s
 	result.BuyerAddress = userResponse.Address
 
 	for key, val := range result.OrderItems {
-		productResponse, err := o.httpClientProductService(val.ProductID, token["token"].(string), false)
+		productResponse, err := o.httpClientProductService(val.ProductID, token["token"].(string), isCustomer)
 		if err != nil {
 			log.Errorf("[OrderService-3] GetByID: %v", err)
 			return nil, err
@@ -248,9 +258,14 @@ func (o *orderService) GetAll(ctx context.Context, queryString entity.QueryStrin
 		return nil, 0, 0, err
 	}
 
+	isCustomer := false
+	if token["role_name"].(string) != "Super Admin" {
+		isCustomer = true
+	}
+
 	for key, val := range results {
 
-		userResponse, err := o.httpClientUserService(val.BuyerID, token["token"].(string), false)
+		userResponse, err := o.httpClientUserService(val.BuyerID, token["token"].(string), isCustomer)
 		if err != nil {
 			log.Errorf("[OrderService-4] GetAll: %v", err)
 			return nil, 0, 0, err
@@ -259,7 +274,7 @@ func (o *orderService) GetAll(ctx context.Context, queryString entity.QueryStrin
 
 		for key2, res := range val.OrderItems {
 
-			productResponse, err := o.httpClientProductService(res.ProductID, token["token"].(string), false)
+			productResponse, err := o.httpClientProductService(res.ProductID, token["token"].(string), isCustomer)
 			if err != nil {
 				log.Errorf("[OrderService-5] GetAll: %v", err)
 				return nil, 0, 0, err
