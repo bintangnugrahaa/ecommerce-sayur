@@ -1,3 +1,4 @@
 /user-service/.env
 /product-service/.env
 /order-service/.env
+/payment-service/.env
