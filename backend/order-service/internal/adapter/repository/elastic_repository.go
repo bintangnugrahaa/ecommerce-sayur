@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -63,6 +64,22 @@ func (e *elasticRepository) SearchOrderElastic(ctx context.Context, query entity
 		return nil, 0, 0, err
 	}
 	defer res.Body.Close()
+
+	if res.IsError() {
+		var e map[string]interface{}
+		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+			log.Printf("Error decoding response: %s", err)
+			return nil, 0, 0, err
+		}
+
+		errType := e["error"].(map[string]interface{})["type"]
+		if errType == "index_not_found_exception" {
+			log.Printf("Index Not Found: %s", err)
+			return nil, 0, 0, errors.New("index not found")
+		}
+
+		return nil, 0, 0, errors.New(e["error"].(string))
+	}
 
 	// Decode response
 	var result map[string]interface{}
