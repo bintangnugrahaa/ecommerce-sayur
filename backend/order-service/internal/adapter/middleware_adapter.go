@@ -25,7 +25,7 @@ type middlewareAdapter struct {
 }
 
 func (m *middlewareAdapter) HaversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
-	const R = 6371
+	const R = 6371 // radius bumi dalam kilometer
 
 	dLat := (lat2 - lat1) * (math.Pi / 180)
 	dLon := (lon2 - lon1) * (math.Pi / 180)
@@ -36,7 +36,7 @@ func (m *middlewareAdapter) HaversineDistance(lat1, lon1, lat2, lon2 float64) fl
 
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
-	return R * c
+	return R * c //kilometer
 }
 
 // DistanceCheck implements MiddlewareAdapterInterface.

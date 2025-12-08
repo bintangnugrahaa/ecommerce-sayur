@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"order-service/internal/core/domain/model"
 
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
@@ -25,6 +26,8 @@ func (cfg Config) ConnectionPostgres() (*Postgres, error) {
 		log.Error().Err(err).Msg("[ConnectionPostgres-1] Failed to connect to database " + cfg.Psql.Host)
 		return nil, err
 	}
+
+	db.AutoMigrate(&model.Order{}, &model.OrderItem{})
 
 	sqlDB, err := db.DB()
 	if err != nil {

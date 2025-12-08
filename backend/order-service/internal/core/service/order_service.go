@@ -10,6 +10,7 @@ import (
 	"order-service/internal/adapter/message"
 	"order-service/internal/adapter/repository"
 	"order-service/internal/core/domain/entity"
+	"order-service/utils"
 	"order-service/utils/conv"
 	"strconv"
 
@@ -22,7 +23,10 @@ type OrderServiceInterface interface {
 	CreateOrder(ctx context.Context, req entity.OrderEntity, accessToken string) (int64, error)
 	UpdateStatus(ctx context.Context, req entity.OrderEntity, accessToken string) error
 	GetAllCustomer(ctx context.Context, queryString entity.QueryStringEntity, accessToken string) ([]entity.OrderEntity, int64, int64, error)
+	GetDetailCustomer(ctx context.Context, orderID int64, accessToken string) (*entity.OrderEntity, error)
+	DeleteByID(ctx context.Context, orderID int64) error
 	GetOrderByOrderCode(ctx context.Context, orderCode, accessToken string) (*entity.OrderEntity, error)
+	GetPublicOrderIDByOrderCode(ctx context.Context, orderCode string) (int64, error)
 }
 
 type orderService struct {
@@ -31,6 +35,17 @@ type orderService struct {
 	httpClient        httpclient.HttpClient
 	publisherRabbitMQ message.PublishRabbitMQInterface
 	elasticRepo       repository.ElasticRepositoryInterface
+}
+
+// GetPublicOrderIDByOrderCode implements OrderServiceInterface.
+func (o *orderService) GetPublicOrderIDByOrderCode(ctx context.Context, orderCode string) (int64, error) {
+	result, err := o.repo.GetOrderByOrderCode(ctx, orderCode)
+	if err != nil {
+		log.Errorf("[OrderService-1] GetPublicOrderIDByOrderCode: %v", err)
+		return 0, err
+	}
+
+	return result.ID, nil
 }
 
 // GetOrderByOrderCode implements OrderServiceInterface.
@@ -79,26 +94,95 @@ func (o *orderService) GetOrderByOrderCode(ctx context.Context, orderCode string
 	return result, nil
 }
 
+// DeleteByID implements OrderServiceInterface.
+func (o *orderService) DeleteByID(ctx context.Context, orderID int64) error {
+	err := o.repo.DeleteOrder(ctx, orderID)
+	if err != nil {
+		log.Errorf("[OrderService-1] DeleteByID: %v", err)
+		return err
+	}
+
+	err = o.publisherRabbitMQ.PublishDeleteOrderFromQueue(orderID)
+	if err != nil {
+		log.Errorf("[OrderService-2] DeleteByID: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// GetDetailCustomer implements OrderServiceInterface.
+func (o *orderService) GetDetailCustomer(ctx context.Context, orderID int64, accessToken string) (*entity.OrderEntity, error) {
+	result, err := o.repo.GetByID(ctx, orderID)
+	if err != nil {
+		log.Errorf("[OrderService-1] GetByID: %v", err)
+		return nil, err
+	}
+
+	var token map[string]interface{}
+	err = json.Unmarshal([]byte(accessToken), &token)
+	if err != nil {
+		log.Errorf("[OrderService-2] GetByID: %v", err)
+		return nil, err
+	}
+
+	userResponse, err := o.httpClientUserService(result.BuyerID, token["token"].(string), true)
+	if err != nil {
+		log.Errorf("[OrderService-3] GetByID: %v", err)
+		return nil, err
+	}
+
+	result.BuyerName = userResponse.Name
+	result.BuyerEmail = userResponse.Email
+	result.BuyerPhone = userResponse.Phone
+	result.BuyerAddress = userResponse.Address
+
+	for key, val := range result.OrderItems {
+		productResponse, err := o.httpClientProductService(val.ProductID, token["token"].(string), true)
+		if err != nil {
+			log.Errorf("[OrderService-3] GetByID: %v", err)
+			return nil, err
+		}
+
+		result.OrderItems[key].ProductImage = productResponse.ProductImage
+		if productResponse.Child != nil {
+			result.OrderItems[key].ProductImage = productResponse.Child[0].Image
+		}
+		result.OrderItems[key].ProductName = productResponse.ProductName
+		result.OrderItems[key].Price = int64(productResponse.SalePrice)
+		result.OrderItems[key].ProductWeight = int64(productResponse.Weight)
+		result.OrderItems[key].ProductUnit = productResponse.Unit
+	}
+
+	return result, nil
+}
+
 // GetAllCustomer implements OrderServiceInterface.
 func (o *orderService) GetAllCustomer(ctx context.Context, queryString entity.QueryStringEntity, accessToken string) ([]entity.OrderEntity, int64, int64, error) {
-	results, count, total, err := o.repo.GetAll(ctx, queryString)
-	if err != nil {
+	results, count, total, err := o.elasticRepo.SearchOrderElasticByBuyerID(ctx, queryString, queryString.BuyerID)
+	if err == nil {
+		return results, count, total, nil
+	} else {
 		log.Errorf("[OrderService-1] GetAllCustomer: %v", err)
+	}
+
+	results, count, total, err = o.repo.GetAll(ctx, queryString)
+	if err != nil {
+		log.Errorf("[OrderService-2] GetAllCustomer: %v", err)
 		return nil, 0, 0, err
 	}
 
 	var token map[string]interface{}
 	err = json.Unmarshal([]byte(accessToken), &token)
 	if err != nil {
-		log.Errorf("[OrderService-2] GetAllCustomer: %v", err)
+		log.Errorf("[OrderService-3] GetAllCustomer: %v", err)
 		return nil, 0, 0, err
 	}
 
 	for key, val := range results {
-
 		userResponse, err := o.httpClientUserService(val.BuyerID, token["token"].(string), true)
 		if err != nil {
-			log.Errorf("[OrderService-3] GetAllCustomer: %v", err)
+			log.Errorf("[OrderService-4] GetAllCustomer: %v", err)
 			return nil, 0, 0, err
 		}
 
@@ -111,7 +195,7 @@ func (o *orderService) GetAllCustomer(ctx context.Context, queryString entity.Qu
 
 			productResponse, err := o.httpClientProductService(res.ProductID, token["token"].(string), true)
 			if err != nil {
-				log.Errorf("[OrderService-4] GetAllCustomer: %v", err)
+				log.Errorf("[OrderService-5] GetAllCustomer: %v", err)
 				return nil, 0, 0, err
 			}
 
@@ -147,13 +231,10 @@ func (o *orderService) UpdateStatus(ctx context.Context, req entity.OrderEntity,
 		log.Errorf("[OrderService-3] UpdateStatus: %v", err)
 		return err
 	}
-
 	message := fmt.Sprintf("Hello,\n\nYour order with ID %s has been updated to status: %s.\n\nThank you for shopping with us!", orderCode, statusOrder)
-	err = o.publisherRabbitMQ.PublishSendEmailUpdateStatus(userResponse.Email, message)
-	if err != nil {
-		log.Errorf("[OrderService-4] UpdateStatus: %v", err)
-		return err
-	}
+	go o.publisherRabbitMQ.PublishSendEmailUpdateStatus(userResponse.Email, message, o.cfg.PublisherName.EmailUpdateStatus, buyerID)
+	go o.publisherRabbitMQ.PublishSendPushNotifUpdateStatus(message, utils.PUSH_NOTIF, buyerID)
+	go o.publisherRabbitMQ.PublishUpdateStatus(o.cfg.PublisherName.PublisherUpdateStatus, req.ID, req.Status)
 
 	return nil
 }
@@ -167,7 +248,6 @@ func (o *orderService) CreateOrder(ctx context.Context, req entity.OrderEntity, 
 	}
 	req.ShippingFee = int64(shippingFee)
 	req.Status = "Pending"
-
 	orderID, err := o.repo.CreateOrder(ctx, req)
 	if err != nil {
 		log.Errorf("[OrderService-1] CreateOrder: %v", err)
@@ -254,7 +334,7 @@ func (o *orderService) GetAll(ctx context.Context, queryString entity.QueryStrin
 	var token map[string]interface{}
 	err = json.Unmarshal([]byte(accessToken), &token)
 	if err != nil {
-		log.Errorf("[OrderService-3] GetByID: %v", err)
+		log.Errorf("[OrderService-3] GetAll: %v", err)
 		return nil, 0, 0, err
 	}
 
@@ -280,7 +360,7 @@ func (o *orderService) GetAll(ctx context.Context, queryString entity.QueryStrin
 				return nil, 0, 0, err
 			}
 
-			results[key].OrderItems[key2].ProductImage = productResponse.ProductImage
+			val.OrderItems[key2].ProductImage = productResponse.ProductImage
 		}
 	}
 
@@ -318,7 +398,6 @@ func (o *orderService) httpClientUserService(userID int64, accessToken string, i
 	}
 
 	return &userResponse.Data, nil
-
 }
 
 func (o *orderService) httpClientProductService(productID int64, accessToken string, isCustomer bool) (*entity.ProductResponseEntity, error) {
@@ -338,14 +417,14 @@ func (o *orderService) httpClientProductService(productID int64, accessToken str
 
 	defer dataProduct.Body.Close()
 
-	bodyProduct, err := io.ReadAll(dataProduct.Body)
+	body, err := io.ReadAll(dataProduct.Body)
 	if err != nil {
 		log.Errorf("[OrderService-2] httpClientProductService: %v", err)
 		return nil, err
 	}
 
 	var productResponse entity.ProductHttpClientResponse
-	err = json.Unmarshal(bodyProduct, &productResponse)
+	err = json.Unmarshal(body, &productResponse)
 	if err != nil {
 		log.Errorf("[OrderService-3] httpClientProductService: %v", err)
 		return nil, err
