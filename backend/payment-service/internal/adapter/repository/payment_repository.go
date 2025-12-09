@@ -11,10 +11,26 @@ import (
 
 type PaymentRepositoryInterface interface {
 	CreatePayment(ctx context.Context, payment *entity.PaymentEntity) error
+	LogPayment(ctx context.Context, paymentID uint, status string) error
 }
 
 type paymentRepository struct {
 	db *gorm.DB
+}
+
+// LogPayment implements PaymentRepositoryInterface.
+func (p *paymentRepository) LogPayment(ctx context.Context, paymentID uint, status string) error {
+	logPayment := model.PaymentLog{
+		PaymentID: paymentID,
+		Status:    status,
+	}
+
+	if err := p.db.Create(&logPayment).Error; err != nil {
+		log.Errorf("[PaymentRepository] LogPayment-1: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // CreatePayment implements PaymentRepositoryInterface.
@@ -34,7 +50,7 @@ func (p *paymentRepository) CreatePayment(ctx context.Context, payment *entity.P
 		return err
 	}
 
-	return nil
+	return p.LogPayment(ctx, modelPayment.ID, modelPayment.PaymentStatus)
 }
 
 func NewPaymentRepository(db *gorm.DB) PaymentRepositoryInterface {
