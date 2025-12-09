@@ -36,11 +36,17 @@ type Redis struct {
 	Port string `json:"port"`
 }
 
+type Midtrans struct {
+	ServerKey   string `json:"server_key"`
+	Environment int    `json:"environment"`
+}
+
 type Config struct {
 	App      App      `json:"app"`
 	Psql     PsqlDB   `json:"psql"`
 	RabbitMQ RabbitMQ `json:"rabbitmq"`
 	Redis    Redis    `json:"redis"`
+	Midtrans Midtrans `json:"midtrans"`
 }
 
 func NewConfig() *Config {
@@ -73,6 +79,10 @@ func NewConfig() *Config {
 		Redis: Redis{
 			Host: viper.GetString("REDIS_HOST"),
 			Port: viper.GetString("REDIS_PORT"),
+		},
+		Midtrans: Midtrans{
+			ServerKey:   viper.GetString("MIDTRANS_SERVER_KEY"),
+			Environment: viper.GetInt("MIDTRANS_ENVIRONMENT"),
 		},
 	}
 }
