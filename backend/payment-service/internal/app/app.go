@@ -5,6 +5,11 @@ import (
 	"os"
 	"os/signal"
 	"payment-service/config"
+	"payment-service/internal/adapter/handlers"
+	httpclient "payment-service/internal/adapter/http_client"
+	"payment-service/internal/adapter/message"
+	"payment-service/internal/adapter/repository"
+	"payment-service/internal/core/service"
 	"syscall"
 	"time"
 
@@ -15,11 +20,20 @@ import (
 
 func RunServer() {
 	cfg := config.NewConfig()
-	_, err := cfg.ConnectionPostgres()
+	db, err := cfg.ConnectionPostgres()
 	if err != nil {
 		log.Fatalf("[RunServer-1] %v", err)
 		return
 	}
+
+	paymentRepo := repository.NewPaymentRepository(db.DB)
+
+	httpClient := httpclient.NewHttpClient(cfg)
+	midtrans := httpclient.NewMidtransClient(cfg)
+
+	publisherRabbitMQ := message.NewPublisherRabbitMQ(cfg)
+
+	paymentService := service.NewPaymentService(paymentRepo, cfg, httpClient, midtrans, publisherRabbitMQ)
 
 	e := echo.New()
 	e.Use(middleware.CORS())
@@ -27,6 +41,8 @@ func RunServer() {
 	e.GET("/api/check", func(c echo.Context) error {
 		return c.String(200, "OK")
 	})
+
+	handlers.NewPaymentHandler(paymentService, e, cfg)
 
 	go func() {
 		if cfg.App.AppPort == "" {

@@ -41,12 +41,17 @@ type Midtrans struct {
 	Environment int    `json:"environment"`
 }
 
+type PublisherName struct {
+	PaymentSuccess string `json:"payment_success"`
+}
+
 type Config struct {
-	App      App      `json:"app"`
-	Psql     PsqlDB   `json:"psql"`
-	RabbitMQ RabbitMQ `json:"rabbitmq"`
-	Redis    Redis    `json:"redis"`
-	Midtrans Midtrans `json:"midtrans"`
+	App           App           `json:"app"`
+	Psql          PsqlDB        `json:"psql"`
+	RabbitMQ      RabbitMQ      `json:"rabbitmq"`
+	Redis         Redis         `json:"redis"`
+	Midtrans      Midtrans      `json:"midtrans"`
+	PublisherName PublisherName `json:"publisher_name"`
 }
 
 func NewConfig() *Config {
@@ -83,6 +88,9 @@ func NewConfig() *Config {
 		Midtrans: Midtrans{
 			ServerKey:   viper.GetString("MIDTRANS_SERVER_KEY"),
 			Environment: viper.GetInt("MIDTRANS_ENVIRONMENT"),
+		},
+		PublisherName: PublisherName{
+			PaymentSuccess: viper.GetString("PUBLISHER_PAYMENT_SUCCESS"),
 		},
 	}
 }
