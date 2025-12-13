@@ -10,7 +10,7 @@ import (
 )
 
 type PaymentRepositoryInterface interface {
-	CreatePayment(ctx context.Context, payment *entity.PaymentEntity) error
+	CreatePayment(ctx context.Context, payment entity.PaymentEntity) error
 	LogPayment(ctx context.Context, paymentID uint, status string) error
 }
 
@@ -34,7 +34,7 @@ func (p *paymentRepository) LogPayment(ctx context.Context, paymentID uint, stat
 }
 
 // CreatePayment implements PaymentRepositoryInterface.
-func (p *paymentRepository) CreatePayment(ctx context.Context, payment *entity.PaymentEntity) error {
+func (p *paymentRepository) CreatePayment(ctx context.Context, payment entity.PaymentEntity) error {
 	modelPayment := model.Payment{
 		OrderID:          payment.OrderID,
 		UserID:           payment.UserID,
