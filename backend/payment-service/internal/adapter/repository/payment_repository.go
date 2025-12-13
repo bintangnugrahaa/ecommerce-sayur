@@ -12,10 +12,30 @@ import (
 type PaymentRepositoryInterface interface {
 	CreatePayment(ctx context.Context, payment entity.PaymentEntity) error
 	LogPayment(ctx context.Context, paymentID uint, status string) error
+	UpdateStatusByOrderCode(ctx context.Context, orderID uint, status string) error
 }
 
 type paymentRepository struct {
 	db *gorm.DB
+}
+
+// UpdateStatusByOrderCode implements PaymentRepositoryInterface.
+func (p *paymentRepository) UpdateStatusByOrderCode(ctx context.Context, orderID uint, status string) error {
+	modelPayment := model.Payment{}
+
+	if err := p.db.Where("order_id = ?", orderID).First(&modelPayment).Error; err != nil {
+		log.Errorf("[PaymentRepository] UpdateStatusByOrderCode-1: %v", err)
+		return err
+	}
+
+	modelPayment.PaymentStatus = status
+
+	if err := p.db.Save(&modelPayment).Error; err != nil {
+		log.Errorf("[PaymentRepository] UpdateStatusByOrderCode-2: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // LogPayment implements PaymentRepositoryInterface.

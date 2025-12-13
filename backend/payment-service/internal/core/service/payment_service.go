@@ -18,6 +18,7 @@ import (
 
 type PaymentServiceInterface interface {
 	ProcessPayment(ctx context.Context, payment entity.PaymentEntity, accessToken string) (*entity.PaymentEntity, error)
+	UpdateStatusByOrderCode(ctx context.Context, orderCode, status, accessToken string) error
 }
 
 type paymentService struct {
@@ -26,6 +27,22 @@ type paymentService struct {
 	midtrans            httpclient.MidtransClientInterface
 	cfg                 *config.Config
 	publisherRabbitMQ   message.PublishRabbitMQInterface
+}
+
+// UpdateStatusByOrderCode implements PaymentServiceInterface.
+func (p *paymentService) UpdateStatusByOrderCode(ctx context.Context, orderCode string, status string, accessToken string) error {
+	orderDetail, err := p.httpClientOrderByCodeService(orderCode, accessToken)
+	if err != nil {
+		log.Errorf("[PaymentService] UpdateStatusByOrderCode-1: %v", err)
+		return err
+	}
+
+	if err = p.repo.UpdateStatusByOrderCode(ctx, uint(orderDetail.ID), status); err != nil {
+		log.Errorf("[PaymentService] UpdateStatusByOrderCode-2: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // ProcessPayment implements PaymentServiceInterface.
@@ -41,7 +58,7 @@ func (p *paymentService) ProcessPayment(ctx context.Context, payment entity.Paym
 		if err := p.publisherRabbitMQ.PublishPaymentSuccess(payment); err != nil {
 			log.Errorf("[PaymentService] ProcessPayment-2: %v", err)
 		}
-		
+
 		return &payment, nil
 	}
 
@@ -146,6 +163,36 @@ func (p *paymentService) httpClientUserService(accessToken string) (*entity.Prof
 	}
 
 	return &userResponse.Data, nil
+}
+
+func (p *paymentService) httpClientOrderByCodeService(orderCode string, accessToken string) (*entity.OrderDetailHttpResponse, error) {
+	baseUrlOrder := fmt.Sprintf("%s/%s", p.cfg.App.OrderServiceUrl, "auth/orders/"+orderCode+"/code")
+	header := map[string]string{
+		"Authorization": "Bearer " + accessToken,
+		"Accept":        "application/json",
+	}
+	dataOrder, err := p.httpClientToService.CallURL("GET", baseUrlOrder, header, nil)
+	if err != nil {
+		log.Errorf("[PaymentService] httpClientOrderByCodeService-1: %v", err)
+		return nil, err
+	}
+
+	defer dataOrder.Body.Close()
+
+	body, err := io.ReadAll(dataOrder.Body)
+	if err != nil {
+		log.Errorf("[PaymentService] httpClientOrderByCodeService-2: %v", err)
+		return nil, err
+	}
+
+	var orderDetail entity.OrderHttpClientResponse
+	err = json.Unmarshal([]byte(body), &orderDetail)
+	if err != nil {
+		log.Errorf("[PaymentService] httpClientOrderByCodeService-3: %v", err)
+		return nil, err
+	}
+
+	return &orderDetail.Data, nil
 }
 
 func NewPaymentService(repo repository.PaymentRepositoryInterface, cfg *config.Config, httpClientToService httpclient.HttpClientToService, midtrans httpclient.MidtransClientInterface, publisherRabbitMQ message.PublishRabbitMQInterface) PaymentServiceInterface {

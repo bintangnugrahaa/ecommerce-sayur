@@ -16,10 +16,48 @@ import (
 
 type PaymentHandlerInterface interface {
 	Create(c echo.Context) error
+	MidtranswebHookHandler(c echo.Context) error
 }
 
 type paymentHandler struct {
 	paymentService service.PaymentServiceInterface
+}
+
+// MidtranswebHookHandler implements PaymentHandlerInterface.
+func (ph *paymentHandler) MidtranswebHookHandler(c echo.Context) error {
+	var notificationPayload map[string]interface{}
+	if err := c.Bind(&notificationPayload); err != nil {
+		log.Errorf("[PaymentHandler-1] MidtranswebHookHandler: %v", err)
+		return c.JSON(http.StatusBadRequest, response.ResponseDefault(err.Error(), nil))
+	}
+
+	transactionStatus := notificationPayload["transaction_status"].(string)
+	orderID := notificationPayload["order_id"].(string)
+
+	newStatus := ""
+	switch transactionStatus {
+	case "capture", "settlement":
+		newStatus = "success"
+	case "deny", "cancel", "expire":
+		newStatus = "failed"
+	case "pending":
+		newStatus = "pending"
+	default:
+		newStatus = "unknown"
+	}
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[PaymentHandler-2] MidtranswebHookHandler: %s", "data token not found")
+		return c.JSON(http.StatusUnauthorized, response.ResponseDefault("data token not found", nil))
+	}
+
+	if err := ph.paymentService.UpdateStatusByOrderCode(c.Request().Context(), orderID, newStatus, user); err != nil {
+		log.Errorf("[PaymentHandler-3] MidtranswebHookHandler: %v", err)
+		return c.JSON(http.StatusInternalServerError, response.ResponseDefault(err.Error(), nil))
+	}
+
+	return c.JSON(http.StatusOK, response.ResponseDefault("success", nil))
 }
 
 // Create implements PaymentHandlerInterface.
@@ -72,6 +110,7 @@ func NewPaymentHandler(paymentService service.PaymentServiceInterface, e *echo.E
 	}
 	e.Use(middleware.Recover())
 	mid := adapter.NewMiddlewareAdapter(cfg)
+	e.POST("/payments/webhook", paymentHandler.MidtranswebHookHandler)
 	authGroup := e.Group("auth", mid.CheckToken())
 	authGroup.POST("/payments", paymentHandler.Create)
 	return paymentHandler
