@@ -10,6 +10,7 @@ type PaymentEntity struct {
 	GrossAmount       float64
 	PaymentURL        string
 	PaymentLogs       []PaymentLogEntity
+	PaymentAt         string
 	Remarks           string
 	OrderCode         string
 	OrderShippingType string

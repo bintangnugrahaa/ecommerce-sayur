@@ -16,10 +16,38 @@ type PaymentRepositoryInterface interface {
 	LogPayment(ctx context.Context, paymentID uint, status string) error
 	UpdateStatusByOrderCode(ctx context.Context, orderID uint, status string) error
 	GetAll(ctx context.Context, req entity.PaymentQueryStringRequest) ([]entity.PaymentEntity, int64, int64, error)
+	GetDetail(ctx context.Context, paymentID uint) (*entity.PaymentEntity, error)
 }
 
 type paymentRepository struct {
 	db *gorm.DB
+}
+
+// GetDetail implements [PaymentRepositoryInterface].
+func (p *paymentRepository) GetDetail(ctx context.Context, paymentID uint) (*entity.PaymentEntity, error) {
+	modelPayment := model.Payment{}
+
+	if err := p.db.Where("id = ?", paymentID).First(&modelPayment).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[PaymentRepository-1] GetDetail: No payment found")
+			return nil, err
+		}
+		log.Errorf("[PaymentRepository-1] GetDetail: %v", err)
+		return nil, err
+	}
+
+	return &entity.PaymentEntity{
+		ID:               modelPayment.ID,
+		OrderID:          modelPayment.OrderID,
+		UserID:           modelPayment.UserID,
+		PaymentMethod:    modelPayment.PaymentMethod,
+		PaymentStatus:    modelPayment.PaymentStatus,
+		PaymentGatewayID: *modelPayment.PaymentGatewayID,
+		GrossAmount:      modelPayment.GrossAmount,
+		PaymentURL:       *modelPayment.PaymentURL,
+		PaymentAt:        modelPayment.CreatedAt.Format("2006-01-02 15:04:05"),
+	}, nil
 }
 
 // GetAll implements [PaymentRepositoryInterface].

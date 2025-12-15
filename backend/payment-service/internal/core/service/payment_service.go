@@ -20,6 +20,7 @@ type PaymentServiceInterface interface {
 	ProcessPayment(ctx context.Context, payment entity.PaymentEntity, accessToken string) (*entity.PaymentEntity, error)
 	UpdateStatusByOrderCode(ctx context.Context, orderCode, status, accessToken string) error
 	GetAll(ctx context.Context, req entity.PaymentQueryStringRequest, accessToken string) ([]entity.PaymentEntity, int64, int64, error)
+	GetDetail(ctx context.Context, paymentID uint, accessToken string) (*entity.PaymentEntity, error)
 }
 
 type paymentService struct {
@@ -28,6 +29,50 @@ type paymentService struct {
 	midtrans            httpclient.MidtransClientInterface
 	cfg                 *config.Config
 	publisherRabbitMQ   message.PublishRabbitMQInterface
+}
+
+// GetDetail implements [PaymentServiceInterface].
+func (p *paymentService) GetDetail(ctx context.Context, paymentID uint, accessToken string) (*entity.PaymentEntity, error) {
+	result, err := p.repo.GetDetail(ctx, paymentID)
+	if err != nil {
+		log.Errorf("[PaymentService] GetDetail-1: %v", err)
+		return nil, err
+	}
+
+	var token map[string]interface{}
+	err = json.Unmarshal([]byte(accessToken), &token)
+	if err != nil {
+		log.Errorf("[PaymentService] GetDetail-2: %v", err)
+		return nil, err
+	}
+
+	userID := int64(result.UserID)
+	if token["role_name"].(string) == "Super Admin" {
+		userID = 0
+	}
+
+	orderDetail, err := p.httpClientOrderService(int64(result.OrderID), token["token"].(string))
+	if err != nil {
+		log.Errorf("[PaymentService] GetDetail-3: %v", err)
+		return nil, err
+	}
+
+	userDetail, err := p.httpClientUserService(token["token"].(string), userID)
+	if err != nil {
+		log.Errorf("[PaymentService] GetDetail-4: %v", err)
+		return nil, err
+	}
+
+	result.CustomerName = userDetail.Name
+	result.CustomerEmail = userDetail.Email
+	result.CustomerAddress = userDetail.Address
+
+	result.OrderCode = orderDetail.OrderCode
+	result.OrderShippingType = orderDetail.ShippingType
+	result.OrderAt = orderDetail.OrderDatetime
+	result.OrderRemarks = orderDetail.Remarks
+
+	return result, nil
 }
 
 // GetAll implements [PaymentServiceInterface].
@@ -98,7 +143,7 @@ func (p *paymentService) ProcessPayment(ctx context.Context, payment entity.Paym
 			return nil, err
 		}
 
-		userResponse, err := p.httpClientUserService(token["token"].(string))
+		userResponse, err := p.httpClientUserService(token["token"].(string), int64(payment.UserID))
 		if err != nil {
 			log.Errorf("[PaymentService] ProcessPayment-4: %v", err)
 			return nil, err
@@ -163,8 +208,11 @@ func (p *paymentService) httpClientOrderService(orderId int64, accessToken strin
 	return &orderDetail.Data, nil
 }
 
-func (p *paymentService) httpClientUserService(accessToken string) (*entity.ProfileHttpResponse, error) {
+func (p *paymentService) httpClientUserService(accessToken string, userID int64) (*entity.ProfileHttpResponse, error) {
 	baseUrlUser := fmt.Sprintf("%s/%s", p.cfg.App.UserServiceUrl, "auth/profile")
+	if userID == 0 {
+		baseUrlUser = fmt.Sprintf("%s/%s", p.cfg.App.UserServiceUrl, "admin/customers/"+strconv.FormatInt(userID, 10))
+	}
 	header := map[string]string{
 		"Authorization": "Bearer " + accessToken,
 		"Accept":        "application/json",

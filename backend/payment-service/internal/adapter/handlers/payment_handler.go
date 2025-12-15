@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"payment-service/config"
 	"payment-service/internal/adapter"
@@ -19,10 +20,141 @@ type PaymentHandlerInterface interface {
 	Create(c echo.Context) error
 	MidtranswebHookHandler(c echo.Context) error
 	GetAllAdmin(c echo.Context) error
+	GetAllCustomer(c echo.Context) error
+	GetDetail(c echo.Context) error
 }
 
 type paymentHandler struct {
 	paymentService service.PaymentServiceInterface
+}
+
+// GetDetail implements [PaymentHandlerInterface].
+func (ph *paymentHandler) GetDetail(c echo.Context) error {
+	var (
+		ctx   = c.Request().Context()
+		resps = response.PaymentDetailResponse{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[PaymentHandler-1] GetAll: %s", "data token not found")
+		return c.JSON(http.StatusNotFound, response.ResponseDefault("data token not found", nil))
+	}
+
+	paymentID := c.Param("id")
+	if paymentID == "" {
+		log.Errorf("[PaymentHandler-2] GetDetail: %s", "Payment ID is required")
+		return c.JSON(http.StatusBadRequest, response.ResponseDefault("Payment ID is required", nil))
+	}
+
+	paymentIDInt, err := conv.StringToInt64(paymentID)
+	if err != nil {
+		log.Errorf("[PaymentHandler-3] GetDetail: %v", err)
+		return c.JSON(http.StatusBadRequest, response.ResponseDefault(err.Error(), nil))
+	}
+
+	result, err := ph.paymentService.GetDetail(ctx, uint(paymentIDInt), user)
+	if err != nil {
+		log.Errorf("[PaymentHandler-4] GetDetail: %v", err)
+		return c.JSON(http.StatusInternalServerError, response.ResponseDefault(err.Error(), nil))
+	}
+
+	resps.ID = int64(result.ID)
+	resps.OrderCode = result.OrderCode
+	resps.PaymentMethod = result.PaymentMethod
+	resps.PaymentStatus = result.PaymentStatus
+	resps.GrossAmount = result.GrossAmount
+	resps.ShippingType = result.OrderShippingType
+	resps.PaymentAt = result.PaymentAt
+	resps.OrderAt = result.OrderAt
+	resps.OrderRemarks = result.OrderRemarks
+	resps.CustomerName = result.CustomerName
+	resps.CustomerAddress = result.CustomerAddress
+
+	return c.JSON(http.StatusOK, response.ResponseDefault("success", resps))
+}
+
+// GetAllCustomer implements [PaymentHandlerInterface].
+func (ph *paymentHandler) GetAllCustomer(c echo.Context) error {
+	var (
+		ctx         = c.Request().Context()
+		resps       = []response.PaymentListResponse{}
+		jwtUserData = entity.JwtUserData{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[PaymentHandler-1] GetAll: %s", "data token not found")
+		return c.JSON(http.StatusNotFound, response.ResponseDefault("data token not found", nil))
+	}
+
+	err := json.Unmarshal([]byte(user), &jwtUserData)
+	if err != nil {
+		log.Errorf("[PaymentHandler-2] GetAllCustomer: %v", err)
+		return c.JSON(http.StatusBadRequest, response.ResponseDefault(err.Error(), nil))
+	}
+
+	userID := jwtUserData.UserID
+	search := c.QueryParam("search")
+	var page int64 = 1
+	if pageStr := c.QueryParam("page"); pageStr != "" {
+		page, _ = conv.StringToInt64(pageStr)
+		if page <= 0 {
+			page = 1
+		}
+	}
+
+	var perPage int64 = 10
+	if perPageStr := c.QueryParam("perPage"); perPageStr != "" {
+		perPage, _ = conv.StringToInt64(perPageStr)
+		if perPage <= 0 {
+			perPage = 10
+		}
+	}
+
+	status := ""
+	if statusStr := c.QueryParam("status"); statusStr != "" {
+		status = statusStr
+	}
+
+	orderBy := "created_at"
+	if orderByStr := c.QueryParam("orderBy"); orderByStr != "" {
+		orderBy = orderByStr
+	}
+
+	orderType := "desc"
+	if orderTypeStr := c.QueryParam("orderType"); orderTypeStr != "" {
+		orderType = orderTypeStr
+	}
+
+	reqEntity := entity.PaymentQueryStringRequest{
+		Search:    search,
+		Status:    status,
+		Page:      page,
+		Limit:     perPage,
+		OrderBy:   orderBy,
+		OrderType: orderType,
+		UserID:    int64(userID),
+	}
+
+	results, count, total, err := ph.paymentService.GetAll(ctx, reqEntity, user)
+	if err != nil {
+		log.Errorf("[PaymentHandler-3] GetAll: %v", err)
+		return c.JSON(http.StatusInternalServerError, response.ResponseDefault(err.Error(), nil))
+	}
+
+	for _, val := range results {
+		resps = append(resps, response.PaymentListResponse{
+			ID:            uint64(val.ID),
+			OrderCode:     val.OrderCode,
+			PaymentStatus: val.PaymentStatus,
+			PaymentMethod: val.PaymentMethod,
+			GrossAmount:   val.GrossAmount,
+			ShippingType:  val.OrderShippingType,
+		})
+	}
+
+	return c.JSON(http.StatusOK, response.ResponseSuccessWithPagination("success", resps, page, count, total, perPage))
 }
 
 // GetAllAdmin implements [PaymentHandlerInterface].
@@ -190,6 +322,13 @@ func NewPaymentHandler(paymentService service.PaymentServiceInterface, e *echo.E
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	e.POST("/payments/webhook", paymentHandler.MidtranswebHookHandler)
 	authGroup := e.Group("auth", mid.CheckToken())
+	authGroup.GET("/payments", paymentHandler.GetAllCustomer)
+	authGroup.GET("/payments/:id", paymentHandler.GetDetail)
 	authGroup.POST("/payments", paymentHandler.Create)
+
+	adminGroup := e.Group("/admin", mid.CheckToken())
+	adminGroup.GET("/payments", paymentHandler.GetAllAdmin)
+	authGroup.GET("/payments/:id", paymentHandler.GetDetail)
+
 	return paymentHandler
 }
