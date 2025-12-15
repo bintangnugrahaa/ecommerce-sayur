@@ -8,6 +8,7 @@ import (
 	"payment-service/internal/adapter/handlers/response"
 	"payment-service/internal/core/domain/entity"
 	"payment-service/internal/core/service"
+	"payment-service/utils/conv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -17,10 +18,87 @@ import (
 type PaymentHandlerInterface interface {
 	Create(c echo.Context) error
 	MidtranswebHookHandler(c echo.Context) error
+	GetAllAdmin(c echo.Context) error
 }
 
 type paymentHandler struct {
 	paymentService service.PaymentServiceInterface
+}
+
+// GetAllAdmin implements [PaymentHandlerInterface].
+func (ph *paymentHandler) GetAllAdmin(c echo.Context) error {
+	var (
+		ctx   = c.Request().Context()
+		resps = []response.PaymentListResponse{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[PaymentHandler-1] GetAll: %s", "data token not found")
+		return c.JSON(http.StatusNotFound, response.ResponseDefault("data token not found", nil))
+	}
+
+	userID := 0
+	search := c.QueryParam("search")
+	var page int64 = 1
+	if pageStr := c.QueryParam("page"); pageStr != "" {
+		page, _ = conv.StringToInt64(pageStr)
+		if page <= 0 {
+			page = 1
+		}
+	}
+
+	var perPage int64 = 10
+	if perPageStr := c.QueryParam("perPage"); perPageStr != "" {
+		perPage, _ = conv.StringToInt64(perPageStr)
+		if perPage <= 0 {
+			perPage = 10
+		}
+	}
+
+	status := ""
+	if statusStr := c.QueryParam("status"); statusStr != "" {
+		status = statusStr
+	}
+
+	orderBy := "created_at"
+	if orderByStr := c.QueryParam("orderBy"); orderByStr != "" {
+		orderBy = orderByStr
+	}
+
+	orderType := "desc"
+	if orderTypeStr := c.QueryParam("orderType"); orderTypeStr != "" {
+		orderType = orderTypeStr
+	}
+
+	reqEntity := entity.PaymentQueryStringRequest{
+		Search:    search,
+		Status:    status,
+		Page:      page,
+		Limit:     perPage,
+		OrderBy:   orderBy,
+		OrderType: orderType,
+		UserID:    int64(userID),
+	}
+
+	results, count, total, err := ph.paymentService.GetAll(ctx, reqEntity, user)
+	if err != nil {
+		log.Errorf("[PaymentHandler-3] GetAll: %v", err)
+		return c.JSON(http.StatusInternalServerError, response.ResponseDefault(err.Error(), nil))
+	}
+
+	for _, val := range results {
+		resps = append(resps, response.PaymentListResponse{
+			ID:            uint64(val.ID),
+			OrderCode:     val.OrderCode,
+			PaymentStatus: val.PaymentStatus,
+			PaymentMethod: val.PaymentMethod,
+			GrossAmount:   val.GrossAmount,
+			ShippingType:  val.OrderShippingType,
+		})
+	}
+
+	return c.JSON(http.StatusOK, response.ResponseSuccessWithPagination("success", resps, page, count, total, perPage))
 }
 
 // MidtranswebHookHandler implements PaymentHandlerInterface.

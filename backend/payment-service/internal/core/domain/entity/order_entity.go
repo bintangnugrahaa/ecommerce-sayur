@@ -14,6 +14,7 @@ type OrderDetailHttpResponse struct {
 	PaymentMethod string        `json:"payment_method"`
 	ShippingFee   int64         `json:"shipping_fee"`
 	Remarks       string        `json:"remarks"`
+	ShippingType  string        `json:"shipping_type"`
 	TotalAmount   int64         `json:"total_amount"`
 	Customer      CustomerOrder `json:"customer"`
 	OrderDetail   []OrderDetail `json:"order_detail"`

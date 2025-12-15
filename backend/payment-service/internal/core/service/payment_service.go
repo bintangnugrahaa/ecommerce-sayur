@@ -19,6 +19,7 @@ import (
 type PaymentServiceInterface interface {
 	ProcessPayment(ctx context.Context, payment entity.PaymentEntity, accessToken string) (*entity.PaymentEntity, error)
 	UpdateStatusByOrderCode(ctx context.Context, orderCode, status, accessToken string) error
+	GetAll(ctx context.Context, req entity.PaymentQueryStringRequest, accessToken string) ([]entity.PaymentEntity, int64, int64, error)
 }
 
 type paymentService struct {
@@ -27,6 +28,33 @@ type paymentService struct {
 	midtrans            httpclient.MidtransClientInterface
 	cfg                 *config.Config
 	publisherRabbitMQ   message.PublishRabbitMQInterface
+}
+
+// GetAll implements [PaymentServiceInterface].
+func (p *paymentService) GetAll(ctx context.Context, req entity.PaymentQueryStringRequest, accessToken string) ([]entity.PaymentEntity, int64, int64, error) {
+	results, count, total, err := p.repo.GetAll(ctx, req)
+	if err != nil {
+		log.Errorf("[PaymentService] GetAll-1: %v", err)
+		return nil, 0, 0, err
+	}
+
+	var token map[string]interface{}
+	err = json.Unmarshal([]byte(accessToken), &token)
+	if err != nil {
+		log.Errorf("[PaymentService] GetAll-2: %v", err)
+		return nil, 0, 0, err
+	}
+	for key, val := range results {
+		orderDetail, err := p.httpClientOrderService(int64(val.OrderID), token["token"].(string))
+		if err != nil {
+			log.Errorf("[PaymentService] GetAll-3: %v", err)
+			return nil, 0, 0, err
+		}
+		results[key].OrderCode = orderDetail.OrderCode
+		results[key].OrderShippingType = orderDetail.ShippingType
+	}
+
+	return results, count, total, nil
 }
 
 // UpdateStatusByOrderCode implements PaymentServiceInterface.
