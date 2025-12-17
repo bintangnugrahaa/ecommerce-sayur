@@ -10,9 +10,11 @@ import (
 	"payment-service/internal/adapter/message"
 	"payment-service/internal/adapter/repository"
 	"payment-service/internal/core/service"
+	"payment-service/utils/validator"
 	"syscall"
 	"time"
 
+	"github.com/go-playground/validator/v10/translations/en"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
@@ -37,6 +39,10 @@ func RunServer() {
 
 	e := echo.New()
 	e.Use(middleware.CORS())
+
+	customValidator := validator.NewValidator()
+	en.RegisterDefaultTranslations(customValidator.Validator, customValidator.Translator)
+	e.Validator = customValidator
 
 	e.GET("/api/check", func(c echo.Context) error {
 		return c.String(200, "OK")

@@ -2,6 +2,7 @@ package message
 
 import (
 	"encoding/json"
+	"fmt"
 	"payment-service/config"
 	"payment-service/internal/core/domain/entity"
 
@@ -48,7 +49,12 @@ func (p *PublishRabbitMQ) PublishPaymentSuccess(payment entity.PaymentEntity) er
 		return err
 	}
 
-	data, _ := json.Marshal(payment)
+	paymentOrder := map[string]string{
+		"orderID":       fmt.Sprintf("%d", payment.OrderID),
+		"paymentMethod": payment.PaymentMethod,
+	}
+
+	data, _ := json.Marshal(paymentOrder)
 	err = ch.Publish(
 		"",
 		q.Name,

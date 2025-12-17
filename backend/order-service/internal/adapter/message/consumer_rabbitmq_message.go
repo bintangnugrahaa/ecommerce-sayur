@@ -194,21 +194,21 @@ func ConsumePaymentSuccess() {
 
 			orderIDStr, ok := payment["orderID"].(string)
 			if !ok {
-				log.Errorf("[consumePaymentSuccess-7] Invalid order ID format: %v", payment["orderID"])
+				log.Errorf("[consumePaymentSuccess-8] Invalid order ID format: %v", payment["orderID"])
 				continue
 			}
 
 			res, err := esClient.Update("orders", orderIDStr, bytes.NewReader(paymentJson))
 			if err != nil {
-				log.Errorf("[consumePaymentSuccess-8] Failed to update payment method in Elasticsearch: %v", err)
+				log.Errorf("[consumePaymentSuccess-9] Failed to update payment method in Elasticsearch: %v", err)
 			}
 			defer res.Body.Close()
 			bodyBytes, _ := io.ReadAll(res.Body)
-			log.Infof("[consumePaymentSuccess-9] Elasticsearch response: %s", string(bodyBytes))
+			log.Infof("[consumePaymentSuccess-10] Elasticsearch response: %s", string(bodyBytes))
 		}
 	}()
 
-	log.Infof("[consumePaymentSuccess-8] Waiting for messages. To exit press CTRL+C")
+	log.Infof("[consumePaymentSuccess-11] Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
