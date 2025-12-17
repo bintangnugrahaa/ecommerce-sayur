@@ -57,7 +57,7 @@ func (p *paymentRepository) GetAll(ctx context.Context, req entity.PaymentQueryS
 	offset := (req.Page - 1) * req.Limit
 
 	sqlMain := p.db.
-		Where("order_code ILIKE ? OR payment_method ILIKE ? OR status ILIKE ?", "%"+req.Search+"%", "%"+req.Search+"%", "%"+req.Status+"%")
+		Where("payment_method ILIKE ? OR payment_status ILIKE ?", "%"+req.Search+"%", "%"+req.Status+"%")
 
 	if req.UserID != 0 {
 		sqlMain = sqlMain.Where("user_id = ?", req.UserID)

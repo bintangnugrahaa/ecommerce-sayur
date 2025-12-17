@@ -51,13 +51,18 @@ func (p *paymentService) GetDetail(ctx context.Context, paymentID uint, accessTo
 		userID = 0
 	}
 
+	isAdmin := false
+	if token["role_name"].(string) == "Super Admin" {
+		isAdmin = true
+	}
+
 	orderDetail, err := p.httpClientOrderService(int64(result.OrderID), token["token"].(string))
 	if err != nil {
 		log.Errorf("[PaymentService] GetDetail-3: %v", err)
 		return nil, err
 	}
 
-	userDetail, err := p.httpClientUserService(token["token"].(string), userID)
+	userDetail, err := p.httpClientUserService(token["token"].(string), userID, isAdmin)
 	if err != nil {
 		log.Errorf("[PaymentService] GetDetail-4: %v", err)
 		return nil, err
@@ -143,7 +148,12 @@ func (p *paymentService) ProcessPayment(ctx context.Context, payment entity.Paym
 			return nil, err
 		}
 
-		userResponse, err := p.httpClientUserService(token["token"].(string), int64(payment.UserID))
+		isAdmin := false
+		if token["role_name"].(string) == "Super Admin" {
+			isAdmin = true
+		}
+
+		userResponse, err := p.httpClientUserService(token["token"].(string), int64(payment.UserID), isAdmin)
 		if err != nil {
 			log.Errorf("[PaymentService] ProcessPayment-4: %v", err)
 			return nil, err
@@ -208,9 +218,9 @@ func (p *paymentService) httpClientOrderService(orderId int64, accessToken strin
 	return &orderDetail.Data, nil
 }
 
-func (p *paymentService) httpClientUserService(accessToken string, userID int64) (*entity.ProfileHttpResponse, error) {
+func (p *paymentService) httpClientUserService(accessToken string, userID int64, isAdmin bool) (*entity.ProfileHttpResponse, error) {
 	baseUrlUser := fmt.Sprintf("%s/%s", p.cfg.App.UserServiceUrl, "auth/profile")
-	if userID == 0 {
+	if isAdmin {
 		baseUrlUser = fmt.Sprintf("%s/%s", p.cfg.App.UserServiceUrl, "admin/customers/"+strconv.FormatInt(userID, 10))
 	}
 	header := map[string]string{
