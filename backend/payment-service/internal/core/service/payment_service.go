@@ -18,7 +18,7 @@ import (
 
 type PaymentServiceInterface interface {
 	ProcessPayment(ctx context.Context, payment entity.PaymentEntity, accessToken string) (*entity.PaymentEntity, error)
-	UpdateStatusByOrderCode(ctx context.Context, orderCode, status, accessToken string) error
+	UpdateStatusByOrderCode(ctx context.Context, orderCode, status string) error
 	GetAll(ctx context.Context, req entity.PaymentQueryStringRequest, accessToken string) ([]entity.PaymentEntity, int64, int64, error)
 	GetDetail(ctx context.Context, paymentID uint, accessToken string) (*entity.PaymentEntity, error)
 }
@@ -108,14 +108,14 @@ func (p *paymentService) GetAll(ctx context.Context, req entity.PaymentQueryStri
 }
 
 // UpdateStatusByOrderCode implements PaymentServiceInterface.
-func (p *paymentService) UpdateStatusByOrderCode(ctx context.Context, orderCode string, status string, accessToken string) error {
-	orderDetail, err := p.httpClientOrderByCodeService(orderCode, accessToken)
+func (p *paymentService) UpdateStatusByOrderCode(ctx context.Context, orderCode string, status string) error {
+	orderDetailID, err := p.httpClientPublicOrderIDByCodeService(orderCode)
 	if err != nil {
 		log.Errorf("[PaymentService] UpdateStatusByOrderCode-1: %v", err)
 		return err
 	}
 
-	if err = p.repo.UpdateStatusByOrderCode(ctx, uint(orderDetail.ID), status); err != nil {
+	if err = p.repo.UpdateStatusByOrderCode(ctx, uint(orderDetailID), status); err != nil {
 		log.Errorf("[PaymentService] UpdateStatusByOrderCode-2: %v", err)
 		return err
 	}
@@ -279,6 +279,40 @@ func (p *paymentService) httpClientOrderByCodeService(orderCode string, accessTo
 	}
 
 	return &orderDetail.Data, nil
+}
+
+func (p *paymentService) httpClientPublicOrderIDByCodeService(orderCode string) (int64, error) {
+	baseUrlOrder := fmt.Sprintf("%s/%s", p.cfg.App.OrderServiceUrl, "public/orders/"+orderCode+"/code")
+	header := map[string]string{
+		"Accept": "application/json",
+	}
+	dataOrder, err := p.httpClientToService.CallURL("GET", baseUrlOrder, header, nil)
+	if err != nil {
+		log.Errorf("[PaymentService] httpClientOrderByCodeService-1: %v", err)
+		return 0, err
+	}
+
+	defer dataOrder.Body.Close()
+
+	if dataOrder.StatusCode != 200 {
+		log.Errorf("[PaymentService] httpClientOrderByCodeService-3: %v", err)
+		return 0, errors.New("Order not found")
+	}
+
+	body, err := io.ReadAll(dataOrder.Body)
+	if err != nil {
+		log.Errorf("[PaymentService] httpClientOrderByCodeService-2: %v", err)
+		return 0, err
+	}
+
+	var orderDetail entity.GetOrderIDByCodeResponse
+	err = json.Unmarshal([]byte(body), &orderDetail)
+	if err != nil {
+		log.Errorf("[PaymentService] httpClientOrderByCodeService-4: %v", err)
+		return 0, err
+	}
+
+	return int64(orderDetail.Data.OrderID), nil
 }
 
 func NewPaymentService(repo repository.PaymentRepositoryInterface, cfg *config.Config, httpClientToService httpclient.HttpClientToService, midtrans httpclient.MidtransClientInterface, publisherRabbitMQ message.PublishRabbitMQInterface) PaymentServiceInterface {

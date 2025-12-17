@@ -256,13 +256,7 @@ func (ph *paymentHandler) MidtranswebHookHandler(c echo.Context) error {
 		newStatus = "unknown"
 	}
 
-	user := c.Get("user").(string)
-	if user == "" {
-		log.Errorf("[PaymentHandler-2] MidtranswebHookHandler: %s", "data token not found")
-		return c.JSON(http.StatusUnauthorized, response.ResponseDefault("data token not found", nil))
-	}
-
-	if err := ph.paymentService.UpdateStatusByOrderCode(c.Request().Context(), orderID, newStatus, user); err != nil {
+	if err := ph.paymentService.UpdateStatusByOrderCode(c.Request().Context(), orderID, newStatus); err != nil {
 		log.Errorf("[PaymentHandler-3] MidtranswebHookHandler: %v", err)
 		return c.JSON(http.StatusInternalServerError, response.ResponseDefault(err.Error(), nil))
 	}

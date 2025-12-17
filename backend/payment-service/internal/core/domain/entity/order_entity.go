@@ -5,6 +5,13 @@ type OrderHttpClientResponse struct {
 	Data    OrderDetailHttpResponse `json:"data"`
 }
 
+type GetOrderIDByCodeResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		OrderID int `json:"orderID"`
+	} `json:"data"`
+}
+
 type OrderDetailHttpResponse struct {
 	ID            int64         `json:"id"`
 	OrderCode     string        `json:"order_code"`
