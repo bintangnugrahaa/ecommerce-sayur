@@ -2,3 +2,4 @@
 /product-service/.env
 /order-service/.env
 /payment-service/.env
+/notification-service/.env
