@@ -14,10 +14,36 @@ import (
 
 type NotificationRepositoryInterface interface {
 	GetAll(ctx context.Context, queryString entity.NotifyQueryString) ([]entity.NotificationEntity, int64, int64, error)
+	GetByID(ctx context.Context, notifID uint) (*entity.NotificationEntity, error)
 }
 
 type notificationRepository struct {
 	db *gorm.DB
+}
+
+// GetByID implements [NotificationRepositoryInterface].
+func (n *notificationRepository) GetByID(ctx context.Context, notifID uint) (*entity.NotificationEntity, error) {
+	modelNotif := model.Notification{}
+
+	if err := n.db.Select("id", "subject", "status", "sent_at", "read_at", "message", "notification_type").First(&modelNotif, notifID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			log.Errorf("[GetByID-1] Record not found for notification ID %d", notifID)
+			err = errors.New("404")
+			return nil, err
+		}
+		log.Errorf("[GetByID-2] Failed to find notification by ID: %v", err)
+		return nil, err
+	}
+
+	return &entity.NotificationEntity{
+		ID:               modelNotif.ID,
+		Subject:          modelNotif.Subject,
+		Status:           modelNotif.Status,
+		SentAt:           modelNotif.SentAt,
+		ReadAt:           modelNotif.ReadAt,
+		Message:          modelNotif.Message,
+		NotificationType: modelNotif.NotificationType,
+	}, nil
 }
 
 // GetAll implements [NotificationRepositoryInterface].
