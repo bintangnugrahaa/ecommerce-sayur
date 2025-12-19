@@ -48,7 +48,7 @@ func (c *consumeRabbitMQ) ConsumeMessage(queueName string) error {
 			continue
 		}
 
-		err = c.emailService.SendEmailNotif(notificationEntity.Email, queueName, notificationEntity.Message)
+		err = c.emailService.SendEmailNotif(*notificationEntity.ReceiverEmail, queueName, notificationEntity.Message)
 		if err != nil {
 			log.Errorf("Failed to send email notification: %v", err)
 			continue

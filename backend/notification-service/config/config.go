@@ -5,6 +5,8 @@ import "github.com/spf13/viper"
 type App struct {
 	AppPort string `json:"app_port"`
 	AppEnv  string `json:"app_env"`
+
+	JwtSecretKey string `json:"jwt_secret_key"`
 }
 
 type PsqlDB struct {
@@ -15,6 +17,11 @@ type PsqlDB struct {
 	DBName    string `json:"db_name"`
 	DBMaxOpen int    `json:"db_max_open"`
 	DBMaxIdle int    `json:"db_max_idle"`
+}
+
+type Redis struct {
+	Host string `json:"host"`
+	Port string `json:"port"`
 }
 
 type RabbitMQ struct {
@@ -38,6 +45,7 @@ type Config struct {
 	Psql      PsqlDB      `json:"psql"`
 	RabbitMQ  RabbitMQ    `json:"rabbitmq"`
 	EmailConf EmailConfig `json:"email_conf"`
+	Redis     Redis       `json:"redis"`
 }
 
 func NewConfig() *Config {
@@ -45,6 +53,8 @@ func NewConfig() *Config {
 		App: App{
 			AppPort: viper.GetString("APP_PORT"),
 			AppEnv:  viper.GetString("APP_ENV"),
+
+			JwtSecretKey: viper.GetString("JWT_SECRET_KEY"),
 		},
 		Psql: PsqlDB{
 			Host:      viper.GetString("DATABASE_HOST"),
@@ -68,6 +78,10 @@ func NewConfig() *Config {
 			Password: viper.GetString("EMAIL_PASSWORD"),
 			Sending:  viper.GetString("EMAIL_SENDING"),
 			IsTLS:    viper.GetBool("EMAIL_IS_TLS"),
+		},
+		Redis: Redis{
+			Host: viper.GetString("REDIS_HOST"),
+			Port: viper.GetString("REDIS_PORT"),
 		},
 	}
 }
