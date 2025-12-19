@@ -30,5 +30,19 @@ func RunServer() {
 		}
 	}()
 
+	go func() {
+		err := rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_CREATE_CUSTOMER)
+		if err != nil {
+			e.Logger.Errorf("Failed to consume RabbitMQ for %s: %v", utils.NOTIF_EMAIL_CREATE_CUSTOMER, err)
+		}
+	}()
+
+	go func() {
+		err := rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_UPDATE_STATUS_ORDER)
+		if err != nil {
+			e.Logger.Errorf("Failed to consume RabbitMQ for %s: %v", utils.NOTIF_EMAIL_UPDATE_STATUS_ORDER, err)
+		}
+	}()
+
 	e.Logger.Fatal(e.Start(":" + cfg.App.AppPort))
 }
