@@ -23,5 +23,12 @@ func RunServer() {
 		}
 	}()
 
+	go func() {
+		err := rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_FORGOT_PASSWORD)
+		if err != nil {
+			e.Logger.Errorf("Failed to consume RabbitMQ for %s: %v", utils.NOTIF_EMAIL_FORGOT_PASSWORD, err)
+		}
+	}()
+
 	e.Logger.Fatal(e.Start(":" + cfg.App.AppPort))
 }

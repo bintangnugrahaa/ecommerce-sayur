@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"notification-service/config"
 	"notification-service/internal/adapter/message"
-	"notification-service/internal/core/domalin/entity"
+	"notification-service/internal/core/domain/entity"
 
 	"github.com/labstack/gommon/log"
 )
