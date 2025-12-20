@@ -13,10 +13,16 @@ type NotificationServiceInterface interface {
 	GetAll(ctx context.Context, queryString entity.NotifyQueryString) ([]entity.NotificationEntity, int64, int64, error)
 	GetByID(ctx context.Context, notifID uint) (*entity.NotificationEntity, error)
 	SendPushNotification(ctx context.Context, notification entity.NotificationEntity)
+	MarkAsRead(ctx context.Context, notifID uint) error
 }
 
 type NotificationService struct {
 	repo repository.NotificationRepositoryInterface
+}
+
+// MarkAsRead implements [NotificationServiceInterface].
+func (n *NotificationService) MarkAsRead(ctx context.Context, notifID uint) error {
+	return n.repo.MarkAsRead(ctx, notifID)
 }
 
 // SendPushNotification implements [NotificationServiceInterface].

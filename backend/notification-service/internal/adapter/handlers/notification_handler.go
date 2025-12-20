@@ -18,10 +18,41 @@ import (
 type NotificationHandlerInterface interface {
 	GetAll(c echo.Context) error
 	GetByID(c echo.Context) error
+	MarkAsRead(c echo.Context) error
 }
 
 type notificationHandler struct {
 	service service.NotificationServiceInterface
+}
+
+// MarkAsRead implements [NotificationHandlerInterface].
+func (h *notificationHandler) MarkAsRead(c echo.Context) error {
+	var (
+		ctx = c.Request().Context()
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[NotificationHandler-1] MarkAsRead: %s", "data token not found")
+		return c.JSON(http.StatusNotFound, response.Response("data token not found", nil))
+	}
+
+	idStr := c.Param("id")
+	id, err := conv.StringToInt64(idStr)
+	if err != nil {
+		log.Errorf("[NotificationHandler-2] MarkAsRead: %v", err)
+		return c.JSON(http.StatusBadRequest, response.Response(err.Error(), nil))
+	}
+
+	err = h.service.MarkAsRead(ctx, uint(id))
+	if err != nil {
+		log.Errorf("[NotificationHandler-3] MarkAsRead: %v", err)
+		if err.Error() == "404" {
+			return c.JSON(http.StatusNotFound, response.Response("data not found", nil))
+		}
+		return c.JSON(http.StatusInternalServerError, response.Response(err.Error(), nil))
+	}
+	return c.JSON(http.StatusOK, response.Response("success", nil))
 }
 
 // GetByID implements [NotificationHandlerInterface].
@@ -165,5 +196,6 @@ func NewNotificationHandler(service service.NotificationServiceInterface, e *ech
 	authGroup := e.Group("auth", mid.CheckToken())
 	authGroup.GET("/notifications", notifHandler.GetAll)
 	authGroup.GET("/notifications/:id", notifHandler.GetByID)
+	authGroup.PUT("/notifications/:id", notifHandler.MarkAsRead)
 	return notifHandler
 }
