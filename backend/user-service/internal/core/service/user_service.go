@@ -68,13 +68,11 @@ func (u *userService) UpdateCustomer(ctx context.Context, req entity.UserEntity)
 
 	if passwordNoencrypt != "" {
 		messageparam := fmt.Sprintf("You're account has been updated. Please login use: \n Email: %s\nPassword: %s", req.Email, passwordNoencrypt)
-		err = message.PublishMessage(req.Email,
+		go message.PublishMessage(req.ID,
+			req.Email,
 			messageparam,
-			utils.NOTIF_EMAIL_UPDATE_CUSTOMER)
-		if err != nil {
-			log.Errorf("[UserService-3] UpdateCustomer: %v", err)
-			return err
-		}
+			utils.NOTIF_EMAIL_UPDATE_CUSTOMER,
+			"Updated Data")
 	}
 
 	return nil
@@ -90,18 +88,18 @@ func (u *userService) CreateCustomer(ctx context.Context, req entity.UserEntity)
 	}
 
 	req.Password = password
-	err = u.repo.CreateCustomer(ctx, req)
+	userID, err := u.repo.CreateCustomer(ctx, req)
 	if err != nil {
 		log.Fatalf("[UserService-2] CreateCustomer: %v", err)
 		return err
 	}
 
 	messageparam := fmt.Sprintf("You have been registered in Sayur Project. Please login use: \n Email: %s\nPassword: %s", req.Email, passwordNoEncrypt)
-	err = message.PublishMessage(req.Email, messageparam, utils.NOTIF_EMAIL_CREATE_CUSTOMER)
-	if err != nil {
-		log.Errorf("[UserService-3] CreateCustomer: %v", err)
-		return err
-	}
+	go message.PublishMessage(userID,
+		req.Email,
+		messageparam,
+		utils.NOTIF_EMAIL_CREATE_CUSTOMER,
+		"Account Exists")
 
 	return nil
 }
@@ -228,11 +226,11 @@ func (u *userService) ForgotPassword(ctx context.Context, req entity.UserEntity)
 
 	urlForgot := fmt.Sprintf("%s/forgot-password?token=%s", u.cfg.App.UrlForgotPassword, token)
 	messageparam := fmt.Sprintf("Please click link below for reset password: %v", urlForgot)
-	err = message.PublishMessage(req.Email, messageparam, utils.NOTIF_EMAIL_FORGOT_PASSWORD)
-	if err != nil {
-		log.Errorf("[UserService-3] ForgotPassword: %v", err)
-		return err
-	}
+	go message.PublishMessage(user.ID,
+		req.Email,
+		messageparam,
+		utils.NOTIF_EMAIL_FORGOT_PASSWORD,
+		"Reset Password")
 
 	return nil
 }
@@ -248,7 +246,7 @@ func (u *userService) CreateUserAccount(ctx context.Context, req entity.UserEnti
 	req.Password = password
 	req.Token = uuid.New().String()
 
-	err = u.repo.CreateUserAccount(ctx, req)
+	userID, err := u.repo.CreateUserAccount(ctx, req)
 	if err != nil {
 		log.Errorf("[UserService-2] CreateUserAccount: %v", err)
 		return err
@@ -256,11 +254,13 @@ func (u *userService) CreateUserAccount(ctx context.Context, req entity.UserEnti
 
 	urlVerify := fmt.Sprintf("http://localhost:8080/verify?token=%v", req.Token)
 	verifyMsg := fmt.Sprintf("Please verify your account by clicking the link: %s", urlVerify)
-	err = message.PublishMessage(req.Email, verifyMsg, utils.NOTIF_EMAIL_VERIFICATION)
-	if err != nil {
-		log.Errorf("[UserService-3] CreateUserAccount: %v", err)
-		return err
-	}
+	go message.PublishMessage(
+		userID,
+		req.Email,
+		verifyMsg,
+		utils.NOTIF_EMAIL_VERIFICATION,
+		"Verify Your Account",
+	)
 
 	return nil
 }

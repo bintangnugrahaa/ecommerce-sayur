@@ -64,6 +64,13 @@ func RunServer() {
 		}
 	}()
 
+	go func() {
+		err = rabbitMQAdapter.ConsumeMessage(utils.PUSH_NOTIF)
+		if err != nil {
+			e.Logger.Errorf("Failed to consume RabbitMQ for %s: %v", utils.PUSH_NOTIF, err)
+		}
+	}()
+
 	handlers.NewNotificationHandler(notifService, e, cfg)
 
 	go func() {

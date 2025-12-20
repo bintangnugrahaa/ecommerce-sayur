@@ -10,6 +10,7 @@ import (
 	"order-service/internal/adapter/message"
 	"order-service/internal/adapter/repository"
 	"order-service/internal/core/domain/entity"
+	"order-service/utils"
 	"order-service/utils/conv"
 	"strconv"
 
@@ -161,11 +162,8 @@ func (o *orderService) UpdateStatus(ctx context.Context, req entity.OrderEntity,
 	}
 
 	message := fmt.Sprintf("Hello,\n\nYour order with ID %s has been updated to status: %s.\n\nThank you for shopping with us!", orderCode, statusOrder)
-	err = o.publisherRabbitMQ.PublishSendEmailUpdateStatus(userResponse.Email, message)
-	if err != nil {
-		log.Errorf("[OrderService-4] UpdateStatus: %v", err)
-		return err
-	}
+	go o.publisherRabbitMQ.PublishSendEmailUpdateStatus(userResponse.Email, message, o.cfg.PublisherName.EmailUpdateStatus, buyerID)
+	go o.publisherRabbitMQ.PublishSendPushNotifUpdateStatus(message, utils.PUSH_NOTIF, buyerID)
 
 	return nil
 }

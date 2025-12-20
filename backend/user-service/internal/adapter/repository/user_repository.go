@@ -15,7 +15,7 @@ import (
 
 type UserRepositoryInterface interface {
 	GetUserByEmail(ctx context.Context, email string) (*entity.UserEntity, error)
-	CreateUserAccount(ctx context.Context, req entity.UserEntity) error
+	CreateUserAccount(ctx context.Context, req entity.UserEntity) (int64, error)
 	UpdateUserVerified(ctx context.Context, userID int64) (*entity.UserEntity, error)
 	UpdatePasswordByID(ctx context.Context, req entity.UserEntity) error
 	GetUserByID(ctx context.Context, userID int64) (*entity.UserEntity, error)
@@ -24,7 +24,7 @@ type UserRepositoryInterface interface {
 	// Modul Customers Admin
 	GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, int64, int64, error)
 	GetCustomerByID(ctx context.Context, customerID int64) (*entity.UserEntity, error)
-	CreateCustomer(ctx context.Context, req entity.UserEntity) error
+	CreateCustomer(ctx context.Context, req entity.UserEntity) (int64, error)
 	UpdateCustomer(ctx context.Context, req entity.UserEntity) error
 	DeleteCustomer(ctx context.Context, customerID int64) error
 }
@@ -106,12 +106,12 @@ func (u *userRepository) UpdateCustomer(ctx context.Context, req entity.UserEnti
 }
 
 // CreateCustomer implements UserRepositoryInterface.
-func (u *userRepository) CreateCustomer(ctx context.Context, req entity.UserEntity) error {
+func (u *userRepository) CreateCustomer(ctx context.Context, req entity.UserEntity) (int64, error) {
 	modelRole := model.Role{}
 
 	if err := u.db.Where("id =?", req.RoleID).First(&modelRole).Error; err != nil {
 		log.Fatalf("[UserRepository-1] CreateCustomer: %v", err)
-		return err
+		return 0, err
 	}
 
 	modelUser := model.User{
@@ -129,10 +129,10 @@ func (u *userRepository) CreateCustomer(ctx context.Context, req entity.UserEnti
 
 	if err := u.db.Create(&modelUser).Error; err != nil {
 		log.Errorf("[UserRepository-2] CreateCustomer: %v", err)
-		return err
+		return 0, err
 	}
 
-	return nil
+	return modelUser.ID, nil
 }
 
 // GetCustomerByID implements UserRepositoryInterface.
@@ -330,12 +330,12 @@ func (u *userRepository) UpdateUserVerified(ctx context.Context, userID int64) (
 }
 
 // CreateUserAccount implements UserRepositoryInterface.
-func (u *userRepository) CreateUserAccount(ctx context.Context, req entity.UserEntity) error {
+func (u *userRepository) CreateUserAccount(ctx context.Context, req entity.UserEntity) (int64, error) {
 	modelRole := model.Role{}
 	err := u.db.Where("name = ?", "Customer").First(&modelRole).Error
 	if err != nil {
 		log.Errorf("[UserRepository-1] CreateUserAccount: %v", err)
-		return err
+		return 0, err
 	}
 
 	modelUser := model.User{
@@ -347,7 +347,7 @@ func (u *userRepository) CreateUserAccount(ctx context.Context, req entity.UserE
 
 	if err := u.db.Create(&modelUser).Error; err != nil {
 		log.Errorf("[UserRepository-2] CreateUserAccount: %v", err)
-		return err
+		return 0, err
 	}
 
 	currentTime := time.Now()
@@ -360,10 +360,10 @@ func (u *userRepository) CreateUserAccount(ctx context.Context, req entity.UserE
 
 	if err := u.db.Create(&modelVerify).Error; err != nil {
 		log.Errorf("[UserRepository-3] CreateUserAccount: %v", err)
-		return err
+		return 0, err
 	}
 
-	return nil
+	return modelUser.ID, nil
 }
 
 func (u *userRepository) GetUserByEmail(ctx context.Context, email string) (*entity.UserEntity, error) {
