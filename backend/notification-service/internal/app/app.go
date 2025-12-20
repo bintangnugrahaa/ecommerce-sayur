@@ -31,7 +31,7 @@ func RunServer() {
 	notifService := service.NewNotificationService(notifRepo)
 
 	emailMessage := message.NewMessageEmail(cfg)
-	rabbitMQAdapter := rabbitmq.NewConsumeRabbitMQ(emailMessage, notifRepo)
+	rabbitMQAdapter := rabbitmq.NewConsumeRabbitMQ(emailMessage, notifRepo, notifService)
 
 	e := echo.New()
 	e.Use(middleware.CORS())

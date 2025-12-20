@@ -7,6 +7,7 @@ import (
 	"notification-service/internal/adapter/message"
 	"notification-service/internal/adapter/repository"
 	"notification-service/internal/core/domain/entity"
+	"notification-service/internal/core/service"
 
 	"github.com/labstack/gommon/log"
 )
@@ -16,8 +17,9 @@ type ConsumeRabbitMQInterface interface {
 }
 
 type consumeRabbitMQ struct {
-	emailService    message.MessageEmailInterface
-	notifRepository repository.NotificationRepositoryInterface
+	emailService        message.MessageEmailInterface
+	notifRepository     repository.NotificationRepositoryInterface
+	notificationService service.NotificationServiceInterface
 }
 
 // ConsumeMessage implements [ConsumeRabbitMQInterface].
@@ -62,19 +64,28 @@ func (c *consumeRabbitMQ) ConsumeMessage(queueName string) error {
 			continue
 		}
 
-		err = c.emailService.SendEmailNotif(*notificationEntity.ReceiverEmail, queueName, notificationEntity.Message)
-		if err != nil {
-			log.Errorf("Failed to send email notification: %v", err)
-			continue
-		}
+		go c.SendNotification(notificationEntity)
 	}
 
 	return nil
 }
 
-func NewConsumeRabbitMQ(emailService message.MessageEmailInterface, notifRepository repository.NotificationRepositoryInterface) ConsumeRabbitMQInterface {
+func (c *consumeRabbitMQ) SendNotification(notificationEntity entity.NotificationEntity) {
+	switch notificationEntity.NotificationType {
+	case "EMAIL":
+		err := c.emailService.SendEmailNotif(*notificationEntity.ReceiverEmail, *notificationEntity.Subject, notificationEntity.Message)
+		if err != nil {
+			log.Errorf("Failed to send email notification: %v", err)
+		}
+	case "PUSH":
+		c.notificationService.SendPushNotification(context.Background(), notificationEntity)
+	}
+}
+
+func NewConsumeRabbitMQ(emailService message.MessageEmailInterface, notifRepository repository.NotificationRepositoryInterface, notificationService service.NotificationServiceInterface) ConsumeRabbitMQInterface {
 	return &consumeRabbitMQ{
-		emailService:    emailService,
-		notifRepository: notifRepository,
+		emailService:        emailService,
+		notifRepository:     notifRepository,
+		notificationService: notificationService,
 	}
 }

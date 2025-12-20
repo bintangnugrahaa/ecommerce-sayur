@@ -17,10 +17,34 @@ type NotificationRepositoryInterface interface {
 	GetAll(ctx context.Context, queryString entity.NotifyQueryString) ([]entity.NotificationEntity, int64, int64, error)
 	GetByID(ctx context.Context, notifID uint) (*entity.NotificationEntity, error)
 	CreateNotification(ctx context.Context, notification entity.NotificationEntity) error
+	MarkAsSent(notifID uint) error
 }
 
 type notificationRepository struct {
 	db *gorm.DB
+}
+
+// MarkAsSent implements [NotificationRepositoryInterface].
+func (n *notificationRepository) MarkAsSent(notifID uint) error {
+	modelNotif := model.Notification{}
+
+	if err := n.db.First(&modelNotif, notifID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			log.Errorf("[MarkAsSent-1] Record not found for notification ID %d", notifID)
+			return err
+		}
+		log.Errorf("[MarkAsSent-2] Failed to find notification by ID: %v", err)
+		return err
+	}
+
+	modelNotif.Status = "SENT"
+
+	if err := n.db.UpdateColumns(&modelNotif).Error; err != nil {
+		log.Errorf("[MarkAsSent-3] Failed to save notification: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // CreateNotification implements [NotificationRepositoryInterface].
