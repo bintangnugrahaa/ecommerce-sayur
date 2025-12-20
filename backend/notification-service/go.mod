@@ -32,6 +32,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.14.0
 	github.com/labstack/gommon v0.4.2
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
