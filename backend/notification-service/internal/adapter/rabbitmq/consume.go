@@ -1,9 +1,11 @@
 package rabbitmq
 
 import (
+	"context"
 	"encoding/json"
 	"notification-service/config"
 	"notification-service/internal/adapter/message"
+	"notification-service/internal/adapter/repository"
 	"notification-service/internal/core/domain/entity"
 
 	"github.com/labstack/gommon/log"
@@ -14,7 +16,8 @@ type ConsumeRabbitMQInterface interface {
 }
 
 type consumeRabbitMQ struct {
-	emailService message.MessageEmailInterface
+	emailService    message.MessageEmailInterface
+	notifRepository repository.NotificationRepositoryInterface
 }
 
 // ConsumeMessage implements [ConsumeRabbitMQInterface].
@@ -48,6 +51,17 @@ func (c *consumeRabbitMQ) ConsumeMessage(queueName string) error {
 			continue
 		}
 
+		notificationEntity.Status = "PENDING"
+		if notificationEntity.NotificationType == "EMAIL" {
+			notificationEntity.Status = "SENT"
+		}
+
+		err = c.notifRepository.CreateNotification(context.Background(), notificationEntity)
+		if err != nil {
+			log.Errorf("Failed to create notification: %v", err)
+			continue
+		}
+
 		err = c.emailService.SendEmailNotif(*notificationEntity.ReceiverEmail, queueName, notificationEntity.Message)
 		if err != nil {
 			log.Errorf("Failed to send email notification: %v", err)
@@ -58,8 +72,9 @@ func (c *consumeRabbitMQ) ConsumeMessage(queueName string) error {
 	return nil
 }
 
-func NewConsumeRabbitMQ(emailService message.MessageEmailInterface) ConsumeRabbitMQInterface {
+func NewConsumeRabbitMQ(emailService message.MessageEmailInterface, notifRepository repository.NotificationRepositoryInterface) ConsumeRabbitMQInterface {
 	return &consumeRabbitMQ{
-		emailService: emailService,
+		emailService:    emailService,
+		notifRepository: notifRepository,
 	}
 }

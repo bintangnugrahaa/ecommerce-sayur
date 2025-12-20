@@ -7,6 +7,7 @@ import (
 	"math"
 	"notification-service/internal/core/domain/entity"
 	"notification-service/internal/core/domain/model"
+	"time"
 
 	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"
@@ -15,10 +16,31 @@ import (
 type NotificationRepositoryInterface interface {
 	GetAll(ctx context.Context, queryString entity.NotifyQueryString) ([]entity.NotificationEntity, int64, int64, error)
 	GetByID(ctx context.Context, notifID uint) (*entity.NotificationEntity, error)
+	CreateNotification(ctx context.Context, notification entity.NotificationEntity) error
 }
 
 type notificationRepository struct {
 	db *gorm.DB
+}
+
+// CreateNotification implements [NotificationRepositoryInterface].
+func (n *notificationRepository) CreateNotification(ctx context.Context, notification entity.NotificationEntity) error {
+	now := time.Now()
+	modelNotif := model.Notification{
+		ReceiverID:       notification.ReceiverID,
+		Subject:          notification.Subject,
+		Status:           notification.Status,
+		SentAt:           &now,
+		ReadAt:           notification.ReadAt,
+		Message:          notification.Message,
+		NotificationType: notification.NotificationType,
+	}
+
+	if err := n.db.Create(&modelNotif).Error; err != nil {
+		log.Errorf("[CreateNotification-1] Failed to create notification: %v", err)
+		return err
+	}
+	return nil
 }
 
 // GetByID implements [NotificationRepositoryInterface].

@@ -31,34 +31,34 @@ func RunServer() {
 	notifService := service.NewNotificationService(notifRepo)
 
 	emailMessage := message.NewMessageEmail(cfg)
-	rabbitMQAdapter := rabbitmq.NewConsumeRabbitMQ(emailMessage)
+	rabbitMQAdapter := rabbitmq.NewConsumeRabbitMQ(emailMessage, notifRepo)
 
 	e := echo.New()
 	e.Use(middleware.CORS())
 
 	go func() {
-		err := rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_VERIFICATION)
+		err = rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_VERIFICATION)
 		if err != nil {
 			e.Logger.Errorf("Failed to consume RabbitMQ for %s: %v", utils.NOTIF_EMAIL_VERIFICATION, err)
 		}
 	}()
 
 	go func() {
-		err := rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_FORGOT_PASSWORD)
+		err = rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_FORGOT_PASSWORD)
 		if err != nil {
 			e.Logger.Errorf("Failed to consume RabbitMQ for %s: %v", utils.NOTIF_EMAIL_FORGOT_PASSWORD, err)
 		}
 	}()
 
 	go func() {
-		err := rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_CREATE_CUSTOMER)
+		err = rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_CREATE_CUSTOMER)
 		if err != nil {
 			e.Logger.Errorf("Failed to consume RabbitMQ for %s: %v", utils.NOTIF_EMAIL_CREATE_CUSTOMER, err)
 		}
 	}()
 
 	go func() {
-		err := rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_UPDATE_STATUS_ORDER)
+		err = rabbitMQAdapter.ConsumeMessage(utils.NOTIF_EMAIL_UPDATE_STATUS_ORDER)
 		if err != nil {
 			e.Logger.Errorf("Failed to consume RabbitMQ for %s: %v", utils.NOTIF_EMAIL_UPDATE_STATUS_ORDER, err)
 		}
