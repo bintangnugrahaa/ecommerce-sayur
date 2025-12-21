@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"user-service/config"
@@ -683,24 +684,16 @@ func (u *userHandler) CreateUserAccount(c echo.Context) error {
 	)
 
 	if err = c.Bind(&req); err != nil {
-		log.Errorf("[UserHandler-1] CreateUserAccount: %v", err)
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusUnprocessableEntity, resp)
+		return response.RespondWithError(c, http.StatusUnprocessableEntity, "[UserHandler-1] CreateUserAccount", err)
 	}
 
 	if err = c.Validate(req); err != nil {
-		log.Errorf("[UserHandler-2] CreateUserAccount: %v", err)
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusUnprocessableEntity, resp)
+		return response.RespondWithError(c, http.StatusUnprocessableEntity, "[UserHandler-2] CreateUserAccount", err)
 	}
 
 	if req.Password != req.PasswordConfirmation {
-		log.Errorf("[UserHandler-3] CreateUserAccount: %s", "Password not match")
-		resp.Message = "Password not match"
-		resp.Data = nil
-		return c.JSON(http.StatusUnprocessableEntity, resp)
+		err = errors.New("passwords do not match")
+		return response.RespondWithError(c, http.StatusUnprocessableEntity, "[UserHandler-3] CreateUserAccount", err)
 	}
 
 	reqEntity := entity.UserEntity{
@@ -711,14 +704,10 @@ func (u *userHandler) CreateUserAccount(c echo.Context) error {
 
 	err = u.userService.CreateUserAccount(ctx, reqEntity)
 	if err != nil {
-		log.Errorf("[UserHandler-4] CreateUserAccount: %v", err)
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusInternalServerError, resp)
+		return response.RespondWithError(c, http.StatusInternalServerError, "[UserHandler-4] CreateUserAccount", err)
 	}
 
 	resp.Message = "Success"
-	resp.Data = nil
 	return c.JSON(http.StatusCreated, resp)
 }
 

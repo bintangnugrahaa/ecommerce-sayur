@@ -331,9 +331,13 @@ func (u *userRepository) UpdateUserVerified(ctx context.Context, userID int64) (
 
 // CreateUserAccount implements UserRepositoryInterface.
 func (u *userRepository) CreateUserAccount(ctx context.Context, req entity.UserEntity) (int64, error) {
-	modelRole := model.Role{}
-	err := u.db.Where("name = ?", "Customer").First(&modelRole).Error
-	if err != nil {
+	var roleID int64
+
+	if err := u.db.Select("id").
+		Where("name = ?", "Customer").
+		Model(&model.Role{}).
+		Scan(&roleID).
+		Error; err != nil {
 		log.Errorf("[UserRepository-1] CreateUserAccount: %v", err)
 		return 0, err
 	}
@@ -342,7 +346,7 @@ func (u *userRepository) CreateUserAccount(ctx context.Context, req entity.UserE
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: req.Password,
-		Roles:    []model.Role{modelRole},
+		Roles:    []model.Role{{ID: roleID}},
 	}
 
 	if err := u.db.Create(&modelUser).Error; err != nil {
@@ -350,12 +354,11 @@ func (u *userRepository) CreateUserAccount(ctx context.Context, req entity.UserE
 		return 0, err
 	}
 
-	currentTime := time.Now()
 	modelVerify := model.VerificationToken{
 		UserID:    modelUser.ID,
 		Token:     req.Token,
 		TokenType: "email_verification",
-		ExpiresAt: currentTime.Add(time.Hour * 1),
+		ExpiresAt: time.Now().Add(time.Hour),
 	}
 
 	if err := u.db.Create(&modelVerify).Error; err != nil {

@@ -252,8 +252,8 @@ func (u *userService) CreateUserAccount(ctx context.Context, req entity.UserEnti
 		return err
 	}
 
-	urlVerify := fmt.Sprintf("http://localhost:8080/verify?token=%v", req.Token)
-	verifyMsg := fmt.Sprintf("Please verify your account by clicking the link: %s", urlVerify)
+	verifyURL := fmt.Sprintf("%s/auth/verify-account?token=%s", u.cfg.App.UrlForgotPassword, req.Token)
+	verifyMsg := fmt.Sprintf("Please verify your account by clicking the link: %s", verifyURL)
 	go message.PublishMessage(
 		userID,
 		req.Email,
