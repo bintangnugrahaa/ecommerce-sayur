@@ -31,7 +31,7 @@ type categoryHandler struct {
 	categoryService service.CategoryServiceInterface
 }
 
-// GetAllShop implements CategoryHandlerInterface.
+// GetAllHome implements CategoryHandlerInterface.
 func (ch *categoryHandler) GetAllShop(c echo.Context) error {
 	var (
 		resp           = response.DefaultResponse{}
@@ -81,11 +81,13 @@ func (ch *categoryHandler) GetAllHome(c echo.Context) error {
 	}
 
 	for _, result := range results {
-		respCategories = append(respCategories, response.CategoryListHomeResponse{
-			Name: result.Name,
-			Icon: result.Icon,
-			Slug: result.Slug,
-		})
+		if result.ParentID == nil {
+			respCategories = append(respCategories, response.CategoryListHomeResponse{
+				Name: result.Name,
+				Icon: result.Icon,
+				Slug: result.Slug,
+			})
+		}
 	}
 
 	resp.Message = "success"
@@ -176,6 +178,99 @@ func (ch *categoryHandler) Delete(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
+// GetByIDAdmin implements CategoryHandlerInterface.
+func (ch *categoryHandler) GetByIDAdmin(c echo.Context) error {
+	var (
+		resp           = response.DefaultResponse{}
+		ctx            = c.Request().Context()
+		respCategories = response.CategoryDetailResponse{}
+	)
+
+	idStr := c.Param("id")
+	if idStr == "" {
+		log.Errorf("[CategoryHandler-1] GetByIDAdmin: %v", "invalid id")
+		resp.Message = "ID is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+	id, err := conv.StringToInt64(idStr)
+	if err != nil {
+		log.Errorf("[CategoryHandler-2] GetByIDAdmin: %v", err.Error())
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	result, err := ch.categoryService.GetByID(ctx, id)
+	if err != nil {
+		log.Errorf("[CategoryHandler-3] GetByIDAdmin: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	respCategories = response.CategoryDetailResponse{
+		ID:          result.ID,
+		Name:        result.Name,
+		Slug:        result.Slug,
+		Icon:        result.Icon,
+		Status:      result.Status,
+		Description: result.Description,
+	}
+
+	resp.Message = "success"
+	resp.Data = respCategories
+	return c.JSON(http.StatusOK, resp)
+}
+
+// GetBySlugAdmin implements CategoryHandlerInterface.
+func (ch *categoryHandler) GetBySlugAdmin(c echo.Context) error {
+	var (
+		resp           = response.DefaultResponse{}
+		ctx            = c.Request().Context()
+		respCategories = response.CategoryDetailResponse{}
+	)
+
+	slug := c.Param("slug")
+	if slug == "" {
+		log.Errorf("[CategoryHandler-1] GetBySlugAdmin: %v", "invalid slug")
+		resp.Message = "Slug is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	result, err := ch.categoryService.GetBySlug(ctx, slug)
+	if err != nil {
+		log.Errorf("[CategoryHandler-2] GetBySlugAdmin: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	respCategories = response.CategoryDetailResponse{
+		ID:          result.ID,
+		Name:        result.Name,
+		Slug:        result.Slug,
+		Icon:        result.Icon,
+		Status:      result.Status,
+		Description: result.Description,
+	}
+
+	resp.Message = "success"
+	resp.Data = respCategories
+	return c.JSON(http.StatusOK, resp)
+}
+
 // Update implements CategoryHandlerInterface.
 func (ch *categoryHandler) Update(c echo.Context) error {
 	var (
@@ -238,99 +333,6 @@ func (ch *categoryHandler) Update(c echo.Context) error {
 
 	resp.Message = "success"
 	resp.Data = nil
-	return c.JSON(http.StatusOK, resp)
-}
-
-// GetBySlugAdmin implements CategoryHandlerInterface.
-func (ch *categoryHandler) GetBySlugAdmin(c echo.Context) error {
-	var (
-		resp           = response.DefaultResponse{}
-		ctx            = c.Request().Context()
-		respCategories = response.CategoryDetailResponse{}
-	)
-
-	slug := c.Param("slug")
-	if slug == "" {
-		log.Errorf("[CategoryHandler-1] GetBySlugAdmin: %v", "invalid slug")
-		resp.Message = "Slug is required"
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-
-	result, err := ch.categoryService.GetBySlug(ctx, slug)
-	if err != nil {
-		log.Errorf("[CategoryHandler-2] GetBySlugAdmin: %v", err)
-		if err.Error() == "404" {
-			resp.Message = "Data not found"
-			resp.Data = nil
-			return c.JSON(http.StatusNotFound, resp)
-		}
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-
-	respCategories = response.CategoryDetailResponse{
-		ID:          result.ID,
-		Name:        result.Name,
-		Slug:        result.Slug,
-		Icon:        result.Icon,
-		Status:      result.Status,
-		Description: result.Description,
-	}
-
-	resp.Message = "success"
-	resp.Data = respCategories
-	return c.JSON(http.StatusOK, resp)
-}
-
-// GetByIDAdmin implements CategoryHandlerInterface.
-func (ch *categoryHandler) GetByIDAdmin(c echo.Context) error {
-	var (
-		resp           = response.DefaultResponse{}
-		ctx            = c.Request().Context()
-		respCategories = response.CategoryDetailResponse{}
-	)
-
-	idStr := c.Param("id")
-	if idStr == "" {
-		log.Errorf("[CategoryHandler-1] GetByIDAdmin: %v", "invalid id")
-		resp.Message = "ID is required"
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-	id, err := conv.StringToInt64(idStr)
-	if err != nil {
-		log.Errorf("[CategoryHandler-2] GetByIDAdmin: %v", err.Error())
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-
-	result, err := ch.categoryService.GetByID(ctx, id)
-	if err != nil {
-		log.Errorf("[CategoryHandler-3] GetByIDAdmin: %v", err)
-		if err.Error() == "404" {
-			resp.Message = "Data not found"
-			resp.Data = nil
-			return c.JSON(http.StatusNotFound, resp)
-		}
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-
-	respCategories = response.CategoryDetailResponse{
-		ID:          result.ID,
-		Name:        result.Name,
-		Slug:        result.Slug,
-		Icon:        result.Icon,
-		Status:      result.Status,
-		Description: result.Description,
-	}
-
-	resp.Message = "success"
-	resp.Data = respCategories
 	return c.JSON(http.StatusOK, resp)
 }
 

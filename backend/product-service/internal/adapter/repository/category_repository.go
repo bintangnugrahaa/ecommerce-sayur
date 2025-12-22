@@ -9,6 +9,7 @@ import (
 	"product-service/internal/core/domain/model"
 
 	"github.com/labstack/gommon/log"
+
 	"gorm.io/gorm"
 )
 
@@ -31,7 +32,7 @@ type categoryRepository struct {
 func (c *categoryRepository) GetAllPublished(ctx context.Context) ([]entity.CategoryEntity, error) {
 	modelCategories := []model.Category{}
 
-	if err := c.db.Select("id, parent_id, name, icon, slug").Where("status = ?", "published").Find(&modelCategories).Error; err != nil {
+	if err := c.db.Select("id, parent_id, name, icon, slug").Where("status = ?", true).Find(&modelCategories).Error; err != nil {
 		log.Errorf("[CategoryRepository-1] GetAllPublished: %v", err)
 		return nil, err
 	}
@@ -45,12 +46,12 @@ func (c *categoryRepository) GetAllPublished(ctx context.Context) ([]entity.Cate
 	entities := []entity.CategoryEntity{}
 	for _, val := range modelCategories {
 		entities = append(entities, entity.CategoryEntity{
-			ID:          val.ID,
-			ParentID:    val.ParentID,
-			Name:        val.Name,
-			Icon:        val.Icon,
-			Status:      "Published",
-			Slug:        val.Slug,
+			ID:       val.ID,
+			ParentID: val.ParentID,
+			Name:     val.Name,
+			Icon:     val.Icon,
+			Status:   "Published",
+			Slug:     val.Slug,
 		})
 	}
 
@@ -153,7 +154,7 @@ func (c *categoryRepository) GetBySlug(ctx context.Context, slug string) (*entit
 	}
 
 	status := "Published"
-	if !modelCategory.Status {
+	if modelCategory.Status == false {
 		status = "Unpublished"
 	}
 
@@ -182,7 +183,7 @@ func (c *categoryRepository) GetByID(ctx context.Context, categoryID int64) (*en
 	}
 
 	status := "Published"
-	if !modelCategory.Status {
+	if modelCategory.Status == false {
 		status = "Unpublished"
 	}
 
@@ -237,7 +238,7 @@ func (c *categoryRepository) GetAll(ctx context.Context, query entity.QueryStrin
 			})
 		}
 		status := "Published"
-		if !val.Status {
+		if val.Status == false {
 			status = "Unpublished"
 		}
 

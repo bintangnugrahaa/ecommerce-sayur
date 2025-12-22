@@ -5,6 +5,7 @@ import (
 	"product-service/config"
 
 	"github.com/labstack/gommon/log"
+
 	storage_go "github.com/supabase-community/storage-go"
 )
 

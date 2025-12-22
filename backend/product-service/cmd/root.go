@@ -27,7 +27,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .env)")
 
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 }
 
 func initConfig() {

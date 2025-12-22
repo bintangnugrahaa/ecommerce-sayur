@@ -32,7 +32,6 @@ type productHandler struct {
 	service service.ProductServiceInterface
 }
 
-// GetDetailHome implements ProductHandlerInterface.
 func (p *productHandler) GetDetailHome(c echo.Context) error {
 	var (
 		resp       = response.DefaultResponse{}
@@ -98,7 +97,7 @@ func (p *productHandler) GetDetailHome(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-// GetAllShop implements ProductHandlerInterface.
+// GetAllAdmin implements ProductHandlerInterface.
 func (p *productHandler) GetAllShop(c echo.Context) error {
 	var (
 		resp      = response.DefaultResponseWithPaginations{}
@@ -107,20 +106,30 @@ func (p *productHandler) GetAllShop(c echo.Context) error {
 	)
 
 	orderBy := "created_at"
-	if c.QueryParam("orderBy") != "" {
-		orderBy = c.QueryParam("orderBy")
-	}
 	orderType := "desc"
-	if c.QueryParam("orderType") != "" {
-		orderType = c.QueryParam("orderType")
+	if c.QueryParam("orderBy") != "" {
+		if c.QueryParam("orderBy") == "price_asc" {
+			orderBy = "reguler_price"
+			orderType = "asc"
+		}
+		if c.QueryParam("orderBy") == "price_desc" {
+			orderBy = "reguler_price"
+			orderType = "desc"
+		}
+
+		if c.QueryParam("orderBy") == "newest" {
+			orderBy = "id"
+			orderType = "desc"
+		}
 	}
+
 	var page int64 = 1
 	if c.QueryParam("page") != "" {
 		page, _ = conv.StringToInt64(c.QueryParam("page"))
 	}
-	var perPage int64 = 5
+	var perPage int64 = 10
 	if c.QueryParam("limit") != "" {
-		perPage, _ = conv.StringToInt64(c.QueryParam("perPage"))
+		perPage, _ = conv.StringToInt64(c.QueryParam("limit"))
 	}
 
 	var startPrice int64 = 0
@@ -132,21 +141,22 @@ func (p *productHandler) GetAllShop(c echo.Context) error {
 	}
 
 	reqEntity := entity.QueryStringProduct{
-		OrderBy:    orderBy,
-		OrderType:  orderType,
-		Page:       int(page),
-		Limit:      int(perPage),
-		StartPrice: startPrice,
-		EndPrice:   endPrice,
+		CategorySlug: c.QueryParam("category"),
+		OrderBy:      orderBy,
+		OrderType:    orderType,
+		Page:         int(page),
+		Limit:        int(perPage),
+		StartPrice:   startPrice,
+		EndPrice:     endPrice,
 	}
 
 	if c.QueryParam("search") != "" {
 		reqEntity.Search = c.QueryParam("search")
 	}
 
-	results, totalData, totalPage, err := p.service.GetAll(ctx, reqEntity)
+	results, totalData, totalPage, err := p.service.SearchProducts(ctx, reqEntity)
 	if err != nil {
-		log.Errorf("[ProductHandler-1] GetAllShop: %v", err)
+		log.Errorf("[ProductHandler-1] GetAllHome: %v", err)
 		if err.Error() == "404" {
 			resp.Message = "Data not found"
 			resp.Data = nil
@@ -173,14 +183,14 @@ func (p *productHandler) GetAllShop(c echo.Context) error {
 	resp.Data = respLists
 	resp.Pagination = &response.Pagination{
 		Page:       page,
-		TotalCount: totalData,
 		TotalPage:  totalPage,
+		TotalCount: totalData,
 		PerPage:    perPage,
 	}
 	return c.JSON(http.StatusOK, resp)
 }
 
-// GetAllHome implements ProductHandlerInterface.
+// GetAllAdmin implements ProductHandlerInterface.
 func (p *productHandler) GetAllHome(c echo.Context) error {
 	var (
 		resp      = response.DefaultResponse{}
@@ -230,7 +240,7 @@ func (p *productHandler) GetAllHome(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-// DeleteAdmin implements ProductHandlerInterface.
+// GetAllAdmin implements ProductHandlerInterface.
 func (p *productHandler) DeleteAdmin(c echo.Context) error {
 	var (
 		resp = response.DefaultResponse{}
@@ -277,9 +287,10 @@ func (p *productHandler) DeleteAdmin(c echo.Context) error {
 	resp.Message = "success"
 	resp.Data = nil
 	return c.JSON(http.StatusOK, resp)
+
 }
 
-// EditAdmin implements ProductHandlerInterface.
+// GetAllAdmin implements ProductHandlerInterface.
 func (p *productHandler) EditAdmin(c echo.Context) error {
 	var (
 		resp = response.DefaultResponse{}
@@ -369,7 +380,7 @@ func (p *productHandler) EditAdmin(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-// CreateAdmin implements ProductHandlerInterface.
+// GetAllAdmin implements ProductHandlerInterface.
 func (p *productHandler) CreateAdmin(c echo.Context) error {
 	var (
 		resp = response.DefaultResponse{}
@@ -442,7 +453,7 @@ func (p *productHandler) CreateAdmin(c echo.Context) error {
 	return c.JSON(http.StatusCreated, resp)
 }
 
-// GetByIDAdmin implements ProductHandlerInterface.
+// GetAllAdmin implements ProductHandlerInterface.
 func (p *productHandler) GetByIDAdmin(c echo.Context) error {
 	var (
 		resp        = response.DefaultResponse{}
@@ -521,6 +532,7 @@ func (p *productHandler) GetByIDAdmin(c echo.Context) error {
 	resp.Message = "success"
 	resp.Data = respProduct
 	return c.JSON(http.StatusOK, resp)
+
 }
 
 // GetAllAdmin implements ProductHandlerInterface.
@@ -586,7 +598,7 @@ func (p *productHandler) GetAllAdmin(c echo.Context) error {
 		Status:       status,
 	}
 
-	result, totalData, totalPage, err := p.service.GetAll(ctx, reqEntity)
+	results, totalData, totalPage, err := p.service.GetAll(ctx, reqEntity)
 	if err != nil {
 		log.Errorf("[ProductHandler-1] GetAll: %v", err)
 		if err.Error() == "404" {
@@ -599,7 +611,7 @@ func (p *productHandler) GetAllAdmin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, resp)
 	}
 
-	for _, product := range result {
+	for _, product := range results {
 		respProducts = append(respProducts, response.ProductListResponse{
 			ID:            product.ID,
 			ProductName:   product.Name,
@@ -624,8 +636,8 @@ func (p *productHandler) GetAllAdmin(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func NewProductHandler(e *echo.Echo, cfg *config.Config, service service.ProductServiceInterface) ProductHandlerInterface {
-	product := &productHandler{service: service}
+func NewProductHandler(e *echo.Echo, cfg *config.Config, productService service.ProductServiceInterface) ProductHandlerInterface {
+	product := &productHandler{service: productService}
 
 	e.Use(middleware.Recover())
 

@@ -9,16 +9,17 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
+// StartUpdateStockConsumer implements consumerUpdateStockInterface.
 func StartUpdateStockConsumer() {
 	db, err := config.NewConfig().ConnectionPostgres()
 	if err != nil {
-		log.Errorf("[StartConsumerUpdateStock-1] Failed to connect to database: %v", err)
+		log.Errorf("[StartUpdateStockConsumer-1] Failed to connect to PostgreSQL: %v", err)
 		return
 	}
 
 	conn, err := config.NewConfig().NewRabbitMQ()
 	if err != nil {
-		log.Errorf("[StartConsumerUpdateStock-2] Failed to connect to RabbitMQ: %v", err)
+		log.Errorf("[StartUpdateStockConsumer-1] Failed to connect to RabbitMQ: %v", err)
 		return
 	}
 
@@ -26,7 +27,7 @@ func StartUpdateStockConsumer() {
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Errorf("[StartConsumerUpdateStock-3] Failed to open a channel: %v", err)
+		log.Errorf("[StartUpdateStockConsumer-2] Failed to open a channel: %v", err)
 		return
 	}
 
