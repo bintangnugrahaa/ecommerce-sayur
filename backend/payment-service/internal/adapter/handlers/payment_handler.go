@@ -28,7 +28,26 @@ type paymentHandler struct {
 	paymentService service.PaymentServiceInterface
 }
 
-// GetDetail implements [PaymentHandlerInterface].
+func NewPaymentHandler(paymentService service.PaymentServiceInterface, e *echo.Echo, cfg *config.Config) PaymentHandlerInterface {
+	paymentHandler := &paymentHandler{
+		paymentService: paymentService,
+	}
+	e.Use(middleware.Recover())
+	mid := adapter.NewMiddlewareAdapter(cfg)
+	e.POST("/payments/webhook", paymentHandler.MidtranswebHookHandler)
+	authGroup := e.Group("auth", mid.CheckToken())
+	authGroup.GET("/payments", paymentHandler.GetAllCustomer)
+	authGroup.GET("/payments/:id", paymentHandler.GetDetail)
+	authGroup.POST("/payments", paymentHandler.Create)
+
+	adminGroup := e.Group("/admin", mid.CheckToken())
+	adminGroup.GET("/payments", paymentHandler.GetAllAdmin)
+	adminGroup.GET("/payments/:id", paymentHandler.GetDetail)
+
+	return paymentHandler
+
+}
+
 func (ph *paymentHandler) GetDetail(c echo.Context) error {
 	var (
 		ctx   = c.Request().Context()
@@ -74,7 +93,6 @@ func (ph *paymentHandler) GetDetail(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.ResponseDefault("success", resps))
 }
 
-// GetAllCustomer implements [PaymentHandlerInterface].
 func (ph *paymentHandler) GetAllCustomer(c echo.Context) error {
 	var (
 		ctx         = c.Request().Context()
@@ -157,7 +175,6 @@ func (ph *paymentHandler) GetAllCustomer(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.ResponseSuccessWithPagination("success", resps, page, count, total, perPage))
 }
 
-// GetAllAdmin implements [PaymentHandlerInterface].
 func (ph *paymentHandler) GetAllAdmin(c echo.Context) error {
 	var (
 		ctx   = c.Request().Context()
@@ -233,7 +250,6 @@ func (ph *paymentHandler) GetAllAdmin(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.ResponseSuccessWithPagination("success", resps, page, count, total, perPage))
 }
 
-// MidtranswebHookHandler implements PaymentHandlerInterface.
 func (ph *paymentHandler) MidtranswebHookHandler(c echo.Context) error {
 	var notificationPayload map[string]interface{}
 	if err := c.Bind(&notificationPayload); err != nil {
@@ -264,7 +280,6 @@ func (ph *paymentHandler) MidtranswebHookHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.ResponseDefault("success", nil))
 }
 
-// Create implements PaymentHandlerInterface.
 func (p *paymentHandler) Create(c echo.Context) error {
 	var (
 		ctx = c.Request().Context()
@@ -306,23 +321,4 @@ func (p *paymentHandler) Create(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusCreated, response.ResponseDefault("success", responPayment))
-}
-
-func NewPaymentHandler(paymentService service.PaymentServiceInterface, e *echo.Echo, cfg *config.Config) PaymentHandlerInterface {
-	paymentHandler := &paymentHandler{
-		paymentService: paymentService,
-	}
-	e.Use(middleware.Recover())
-	mid := adapter.NewMiddlewareAdapter(cfg)
-	e.POST("/payments/webhook", paymentHandler.MidtranswebHookHandler)
-	authGroup := e.Group("auth", mid.CheckToken())
-	authGroup.GET("/payments", paymentHandler.GetAllCustomer)
-	authGroup.GET("/payments/:id", paymentHandler.GetDetail)
-	authGroup.POST("/payments", paymentHandler.Create)
-
-	adminGroup := e.Group("/admin", mid.CheckToken())
-	adminGroup.GET("/payments", paymentHandler.GetAllAdmin)
-	authGroup.GET("/payments/:id", paymentHandler.GetDetail)
-
-	return paymentHandler
 }

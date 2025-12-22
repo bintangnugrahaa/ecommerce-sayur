@@ -17,13 +17,26 @@ type PaymentRepositoryInterface interface {
 	UpdateStatusByOrderCode(ctx context.Context, orderID uint, status string) error
 	GetAll(ctx context.Context, req entity.PaymentQueryStringRequest) ([]entity.PaymentEntity, int64, int64, error)
 	GetDetail(ctx context.Context, paymentID uint) (*entity.PaymentEntity, error)
+	GetByOrderID(ctx context.Context, orderID uint) error
 }
 
 type paymentRepository struct {
 	db *gorm.DB
 }
 
-// GetDetail implements [PaymentRepositoryInterface].
+// GetByOrderID implements PaymentRepositoryInterface.
+func (p *paymentRepository) GetByOrderID(ctx context.Context, orderID uint) error {
+	modelPayment := model.Payment{}
+
+	if err := p.db.Where("order_id = ?", orderID).First(&modelPayment).Error; err != nil {
+		log.Errorf("[PaymentRepository-1] GetByOrderID: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// GetDetail implements PaymentRepositoryInterface.
 func (p *paymentRepository) GetDetail(ctx context.Context, paymentID uint) (*entity.PaymentEntity, error) {
 	modelPayment := model.Payment{}
 
@@ -50,7 +63,7 @@ func (p *paymentRepository) GetDetail(ctx context.Context, paymentID uint) (*ent
 	}, nil
 }
 
-// GetAll implements [PaymentRepositoryInterface].
+// GetAll implements PaymentRepositoryInterface.
 func (p *paymentRepository) GetAll(ctx context.Context, req entity.PaymentQueryStringRequest) ([]entity.PaymentEntity, int64, int64, error) {
 	modelPayments := []model.Payment{}
 	var countData int64

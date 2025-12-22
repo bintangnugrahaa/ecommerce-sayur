@@ -31,7 +31,7 @@ type paymentService struct {
 	publisherRabbitMQ   message.PublishRabbitMQInterface
 }
 
-// GetDetail implements [PaymentServiceInterface].
+// GetDetail implements PaymentServiceInterface.
 func (p *paymentService) GetDetail(ctx context.Context, paymentID uint, accessToken string) (*entity.PaymentEntity, error) {
 	result, err := p.repo.GetDetail(ctx, paymentID)
 	if err != nil {
@@ -51,15 +51,15 @@ func (p *paymentService) GetDetail(ctx context.Context, paymentID uint, accessTo
 		userID = 0
 	}
 
-	isAdmin := false
-	if token["role_name"].(string) == "Super Admin" {
-		isAdmin = true
-	}
-
 	orderDetail, err := p.httpClientOrderService(int64(result.OrderID), token["token"].(string))
 	if err != nil {
 		log.Errorf("[PaymentService] GetDetail-3: %v", err)
 		return nil, err
+	}
+
+	isAdmin := false
+	if token["role_name"].(string) == "Super Admin" {
+		isAdmin = true
 	}
 
 	userDetail, err := p.httpClientUserService(token["token"].(string), userID, isAdmin)
@@ -80,7 +80,7 @@ func (p *paymentService) GetDetail(ctx context.Context, paymentID uint, accessTo
 	return result, nil
 }
 
-// GetAll implements [PaymentServiceInterface].
+// GetAll implements PaymentServiceInterface.
 func (p *paymentService) GetAll(ctx context.Context, req entity.PaymentQueryStringRequest, accessToken string) ([]entity.PaymentEntity, int64, int64, error) {
 	results, count, total, err := p.repo.GetAll(ctx, req)
 	if err != nil {
@@ -125,16 +125,22 @@ func (p *paymentService) UpdateStatusByOrderCode(ctx context.Context, orderCode 
 
 // ProcessPayment implements PaymentServiceInterface.
 func (p *paymentService) ProcessPayment(ctx context.Context, payment entity.PaymentEntity, accessToken string) (*entity.PaymentEntity, error) {
+	err := p.repo.GetByOrderID(ctx, uint(payment.OrderID))
+	if err == nil {
+		log.Infof("[PaymentService] ProcessPayment-1: Payment already exists")
+		return nil, errors.New("Payment already exists")
+	}
+
 	if payment.PaymentMethod == "cod" {
 		payment.PaymentStatus = "Success"
 
 		if err := p.repo.CreatePayment(ctx, payment); err != nil {
-			log.Errorf("[PaymentService] ProcessPayment-1: %v", err)
+			log.Errorf("[PaymentService] ProcessPayment-2: %v", err)
 			return nil, err
 		}
 
 		if err := p.publisherRabbitMQ.PublishPaymentSuccess(payment); err != nil {
-			log.Errorf("[PaymentService] ProcessPayment-2: %v", err)
+			log.Errorf("[PaymentService] ProcessPayment-3: %v", err)
 		}
 
 		return &payment, nil
@@ -144,7 +150,7 @@ func (p *paymentService) ProcessPayment(ctx context.Context, payment entity.Paym
 		var token map[string]interface{}
 		err := json.Unmarshal([]byte(accessToken), &token)
 		if err != nil {
-			log.Errorf("[PaymentService] ProcessPayment-3: %v", err)
+			log.Errorf("[PaymentService] ProcessPayment-4: %v", err)
 			return nil, err
 		}
 
@@ -155,31 +161,31 @@ func (p *paymentService) ProcessPayment(ctx context.Context, payment entity.Paym
 
 		userResponse, err := p.httpClientUserService(token["token"].(string), int64(payment.UserID), isAdmin)
 		if err != nil {
-			log.Errorf("[PaymentService] ProcessPayment-4: %v", err)
+			log.Errorf("[PaymentService] ProcessPayment-5: %v", err)
 			return nil, err
 		}
 
 		orderDetail, err := p.httpClientOrderService(int64(payment.OrderID), token["token"].(string))
 		if err != nil {
-			log.Errorf("[PaymentService] ProcessPayment-5: %v", err)
+			log.Errorf("[PaymentService] ProcessPayment-6: %v", err)
 			return nil, err
 		}
 
 		transactionID, err := p.midtrans.CreateTransaction(orderDetail.OrderCode, int64(payment.GrossAmount), userResponse.Name, userResponse.Email)
 		if err != nil {
-			log.Errorf("[PaymentService] ProcessPayment-6: %v", err)
+			log.Errorf("[PaymentService] ProcessPayment-7: %v", err)
 			return nil, err
 		}
 		payment.PaymentStatus = "Pending"
 		payment.PaymentGatewayID = transactionID
 
 		if err := p.repo.CreatePayment(ctx, payment); err != nil {
-			log.Errorf("[PaymentService] ProcessPayment-7: %v", err)
+			log.Errorf("[PaymentService] ProcessPayment-8: %v", err)
 			return nil, err
 		}
 
 		if err := p.publisherRabbitMQ.PublishPaymentSuccess(payment); err != nil {
-			log.Errorf("[PaymentService] ProcessPayment-8: %v", err)
+			log.Errorf("[PaymentService] ProcessPayment-9: %v", err)
 		}
 
 		return &payment, nil

@@ -58,7 +58,7 @@ func NewConfig() *Config {
 	return &Config{
 		App: App{
 			AppPort: viper.GetString("APP_PORT"),
-			AppEnv:  viper.GetString("APP_PORT"),
+			AppEnv:  viper.GetString("APP_ENV"),
 
 			JwtSecretKey:      viper.GetString("JWT_SECRET_KEY"),
 			ServerTimeOut:     viper.GetInt("SERVER_TIMEOUT"),
