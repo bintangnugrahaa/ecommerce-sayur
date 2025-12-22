@@ -16,6 +16,6 @@ var workerUpdatePaymentOrderCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(workerUpdatePaymentOrderCmd)
-}
+// func init() {
+// 	rootCmd.AddCommand(workerUpdatePaymentOrderCmd)
+// }

@@ -7,15 +7,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var workerCmd = &cobra.Command{
-	Use:   "worker-order",
+var workerDeleteOrderCmd = &cobra.Command{
+	Use:   "worker-delete-order",
 	Short: "Menjalankan worker untuk consume RabbitMQ dan index ke Elasticsearch",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Worker untuk Order Indexing sedang berjalan...")
-		message.StartOrderConsumer()
+		message.ConsumeDeleteOrder()
 	},
 }
 
 // func init() {
-// 	rootCmd.AddCommand(workerCmd)
+// 	rootCmd.AddCommand(workerDeleteOrderCmd)
 // }

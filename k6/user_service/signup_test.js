@@ -8,7 +8,7 @@ export let options = {
 };
 
 export default function () {
-  const url = "http://localhost:8090/signup";
+  const url = "http://localhost:8080/signup";
 
   const uniqueEmail = `user_${uuidv4()}@example.com`;
 
