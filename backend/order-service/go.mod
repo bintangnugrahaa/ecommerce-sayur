@@ -1,6 +1,6 @@
 module order-service
 
-go 1.25.3
+go 1.25.5
 
 require (
 	github.com/go-playground/locales v0.14.1

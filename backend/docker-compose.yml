@@ -1,4 +1,4 @@
-version: "3.8"
+name: ecommerce-sayur
 
 services:
   user_db:
@@ -138,7 +138,7 @@ services:
     env_file:
       - ./user-service/.env
     ports:
-      - "8080:8080"
+      - "8090:8090"
     depends_on:
       user_db:
         condition: service_healthy
