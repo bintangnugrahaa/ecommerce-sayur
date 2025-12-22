@@ -9,7 +9,7 @@ import (
 type Order struct {
 	ID           int64          `gorm:"primaryKey"`
 	OrderCode    string         `gorm:"column:order_code;unique;not null;size:64"`
-	BuyerID      int64          `gorm:"column:buyer_id;not null"`
+	BuyerID      int64          `gorm:"column:buyer_id;not null"` // Assuming buyer_id is a user ID
 	OrderDate    time.Time      `gorm:"column:order_date;not null;default:CURRENT_TIMESTAMP"`
 	Status       string         `gorm:"column:status;not null;default:'pending';size:20"`
 	TotalAmount  float64        `gorm:"column:total_amount;not null;default:0"`
