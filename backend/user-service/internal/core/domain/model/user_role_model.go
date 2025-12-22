@@ -1,14 +1,18 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type UserRole struct {
-	ID        int `gorm:"primaryKey"`
-	RoleID    int `gorm:"index"`
-	UserID    int `gorm:"index"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *time.Time `gorm:"index"`
+	ID        int64     `gorm:"primaryKey;autoIncrement"`
+	RoleID    int64     `gorm:"not null"`
+	UserID    int64     `gorm:"not null"`
+	CreatedAt time.Time `gorm:"type:timestamp;default:current_timestamp"`
+	UpdatedAt *time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 type Tabler interface {
@@ -16,5 +20,5 @@ type Tabler interface {
 }
 
 func (UserRole) TableName() string {
-	return "user_roles"
+	return "user_role"
 }

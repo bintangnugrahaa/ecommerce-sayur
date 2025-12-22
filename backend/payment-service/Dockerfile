@@ -8,6 +8,6 @@ RUN go mod download
 COPY . .
 RUN go build -o main main.go
 
-EXPOSE 8082
+EXPOSE 8084
 
-CMD ["./main", "start"]
+CMD ["./main", "notif-start"]

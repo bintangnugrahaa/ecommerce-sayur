@@ -8,6 +8,6 @@ RUN go mod download
 COPY . .
 RUN go build -o main main.go
 
-EXPOSE 8081
+EXPOSE 8082
 
 CMD ["./main", "start"]
