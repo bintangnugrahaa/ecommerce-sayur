@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"user-service/config"
@@ -88,6 +89,94 @@ func (u *userHandler) DeleteCustomer(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
+// UpdateCustomer implements UserHandlerInterface.
+func (u *userHandler) UpdateCustomer(c echo.Context) error {
+	var (
+		resp = response.DefaultResponseWithPaginations{}
+		ctx  = c.Request().Context()
+		req  = request.CustomerRequest{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[UserHandler-1] UpdateCustomer: %s", "data token not found")
+		resp.Message = "data token not valid"
+		resp.Data = nil
+		return c.JSON(http.StatusUnauthorized, resp)
+	}
+
+	if err = c.Bind(&req); err != nil {
+		log.Errorf("[UserHandler-2] UpdateCustomer: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err = c.Validate(&req); err != nil {
+		log.Errorf("[UserHandler-3] UpdateCustomer: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	latString := ""
+	lngString := ""
+	if req.Lat != 0 {
+		latString = strconv.FormatFloat(req.Lat, 'g', -1, 64)
+	}
+
+	if req.Lng != 0 {
+		lngString = strconv.FormatFloat(req.Lng, 'g', -1, 64)
+	}
+	phoneString := fmt.Sprintf("%d", req.Phone)
+
+	idParamStr := c.Param("id")
+	if idParamStr == "" {
+		log.Infof("[UserHandler-4] UpdateCustomer: %s", "missing or invalid customer ID")
+		resp.Message = "missing or invalid customer ID"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	id, err := conv.StringToInt64(idParamStr)
+	if err != nil {
+		log.Infof("[UserHandler-5] UpdateCustomer: %s", "invalid customer ID")
+		resp.Message = "invalid customer ID"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	reqEntity := entity.UserEntity{
+		ID:       id,
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: req.Password,
+		Phone:    phoneString,
+		Address:  req.Address,
+		Lat:      latString,
+		Lng:      lngString,
+		Photo:    req.Photo,
+	}
+
+	err = u.userService.UpdateDataUser(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[UserHandler-6] UpdateCustomer: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Customer not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "Success"
+	resp.Data = nil
+
+	return c.JSON(http.StatusOK, resp)
+}
+
 // CreateCustomer implements UserHandlerInterface.
 func (u *userHandler) CreateCustomer(c echo.Context) error {
 	var (
@@ -153,94 +242,6 @@ func (u *userHandler) CreateCustomer(c echo.Context) error {
 	resp.Pagination = nil
 
 	return c.JSON(http.StatusCreated, resp)
-}
-
-// UpdateCustomer implements UserHandlerInterface.
-func (u *userHandler) UpdateCustomer(c echo.Context) error {
-	var (
-		resp = response.DefaultResponseWithPaginations{}
-		ctx  = c.Request().Context()
-		req  = request.CustomerRequest{}
-	)
-
-	user := c.Get("user").(string)
-	if user == "" {
-		log.Errorf("[UserHandler-1] UpdateCustomer: %s", "data token not found")
-		resp.Message = "data token not valid"
-		resp.Data = nil
-		return c.JSON(http.StatusUnauthorized, resp)
-	}
-
-	if err = c.Bind(&req); err != nil {
-		log.Errorf("[UserHandler-2] UpdateCustomer: %v", err)
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-
-	if err = c.Validate(&req); err != nil {
-		log.Errorf("[UserHandler-3] UpdateCustomer: %v", err)
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-
-	latString := ""
-	lngString := ""
-	if req.Lat != 0 {
-		latString = strconv.FormatFloat(req.Lat, 'g', -1, 64)
-	}
-
-	if req.Lng != 0 {
-		lngString = strconv.FormatFloat(req.Lng, 'g', -1, 64)
-	}
-	phoneString := req.Phone
-
-	idParamStr := c.Param("id")
-	if idParamStr == "" {
-		log.Infof("[UserHandler-4] UpdateCustomer: %s", "missing or invalid customer ID")
-		resp.Message = "missing or invalid customer ID"
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-
-	id, err := conv.StringToInt64(idParamStr)
-	if err != nil {
-		log.Infof("[UserHandler-5] UpdateCustomer: %s", "invalid customer ID")
-		resp.Message = "invalid customer ID"
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-
-	reqEntity := entity.UserEntity{
-		ID:       id,
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: req.Password,
-		Phone:    phoneString,
-		Address:  req.Address,
-		Lat:      latString,
-		Lng:      lngString,
-		Photo:    req.Photo,
-	}
-
-	err = u.userService.UpdateDataUser(ctx, reqEntity)
-	if err != nil {
-		log.Errorf("[UserHandler-6] UpdateCustomer: %v", err)
-		if err.Error() == "404" {
-			resp.Message = "Customer not found"
-			resp.Data = nil
-			return c.JSON(http.StatusNotFound, resp)
-		}
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusInternalServerError, resp)
-	}
-
-	resp.Message = "Success"
-	resp.Data = nil
-
-	return c.JSON(http.StatusOK, resp)
 }
 
 // GetCustomerByID implements UserHandlerInterface.
@@ -310,7 +311,7 @@ func (u *userHandler) GetCustomerAll(c echo.Context) error {
 	var (
 		resp     = response.DefaultResponseWithPaginations{}
 		ctx      = c.Request().Context()
-		respUser = []response.ProfileResponse{}
+		respUser = []response.CustomerListResponse{}
 	)
 
 	user := c.Get("user").(string)
@@ -322,8 +323,15 @@ func (u *userHandler) GetCustomerAll(c echo.Context) error {
 	}
 
 	search := c.QueryParam("search")
-	orderBy := c.QueryParam("order_by")
+	orderBy := "created_at"
+	if c.QueryParam("order_by") != "" {
+		orderBy = c.QueryParam("order_by")
+	}
+
 	orderType := c.QueryParam("order_type")
+	if orderType != "asc" && orderType != "desc" {
+		orderType = "desc"
+	}
 
 	pageStr := c.QueryParam("page")
 	var page int64 = 1
@@ -365,7 +373,7 @@ func (u *userHandler) GetCustomerAll(c echo.Context) error {
 	}
 
 	for _, val := range results {
-		respUser = append(respUser, response.ProfileResponse{
+		respUser = append(respUser, response.CustomerListResponse{
 			ID:    val.ID,
 			Name:  val.Name,
 			Email: val.Email,
@@ -427,8 +435,6 @@ func (u *userHandler) UpdateDataUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, resp)
 	}
 
-	phoneString := req.Phone
-
 	reqEntity := entity.UserEntity{
 		ID:      userID,
 		Name:    req.Name,
@@ -436,7 +442,7 @@ func (u *userHandler) UpdateDataUser(c echo.Context) error {
 		Address: req.Address,
 		Lat:     req.Lat,
 		Lng:     req.Lng,
-		Phone:   phoneString,
+		Phone:   req.Phone,
 		Photo:   req.Photo,
 	}
 
@@ -581,7 +587,7 @@ func (u *userHandler) UpdatePassword(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-// VerifyAccount implements UserHandlerInterface.
+// VerifyToken implements UserHandlerInterface.
 func (u *userHandler) VerifyAccount(c echo.Context) error {
 	var (
 		resp       = response.DefaultResponse{}
@@ -629,6 +635,7 @@ func (u *userHandler) VerifyAccount(c echo.Context) error {
 	resp.Data = respSignIn
 
 	return c.JSON(http.StatusOK, resp)
+
 }
 
 // ForgotPassword implements UserHandlerInterface.
@@ -713,6 +720,7 @@ func (u *userHandler) CreateUserAccount(c echo.Context) error {
 
 var err error
 
+// SignIn implements UserHandlerInterface.
 func (u *userHandler) SignIn(c echo.Context) error {
 	var (
 		req        = request.SignInRequest{}
@@ -739,7 +747,6 @@ func (u *userHandler) SignIn(c echo.Context) error {
 		Email:    req.Email,
 		Password: req.Password,
 	}
-
 	user, token, err := u.userService.SignIn(ctx, reqEntity)
 	if err != nil {
 		if err.Error() == "404" {

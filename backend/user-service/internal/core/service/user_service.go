@@ -224,7 +224,7 @@ func (u *userService) ForgotPassword(ctx context.Context, req entity.UserEntity)
 		return err
 	}
 
-	urlForgot := fmt.Sprintf("%s/forgot-password?token=%s", u.cfg.App.UrlForgotPassword, token)
+	urlForgot := fmt.Sprintf("%s/auth/update-password?token=%s", u.cfg.App.UrlFrontFE, token)
 	messageparam := fmt.Sprintf("Please click link below for reset password: %v", urlForgot)
 	go message.PublishMessage(user.ID,
 		req.Email,
@@ -252,7 +252,7 @@ func (u *userService) CreateUserAccount(ctx context.Context, req entity.UserEnti
 		return err
 	}
 
-	verifyURL := fmt.Sprintf("%s/auth/verify-account?token=%s", u.cfg.App.UrlForgotPassword, req.Token)
+	verifyURL := fmt.Sprintf("%s/auth/verify-account?token=%s", u.cfg.App.UrlFrontFE, req.Token)
 	verifyMsg := fmt.Sprintf("Please verify your account by clicking the link: %s", verifyURL)
 	go message.PublishMessage(
 		userID,
@@ -265,6 +265,7 @@ func (u *userService) CreateUserAccount(ctx context.Context, req entity.UserEnti
 	return nil
 }
 
+// SignIn implements UserServiceInterface.
 func (u *userService) SignIn(ctx context.Context, req entity.UserEntity) (*entity.UserEntity, string, error) {
 	user, err := u.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {

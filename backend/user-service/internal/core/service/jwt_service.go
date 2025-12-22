@@ -17,6 +17,7 @@ type jwtService struct {
 	issuer    string
 }
 
+// GenerateToken implements JwtServiceInterface.
 func (j *jwtService) GenerateToken(userID int64) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
@@ -28,6 +29,7 @@ func (j *jwtService) GenerateToken(userID int64) (string, error) {
 	return token.SignedString([]byte(j.secretKey))
 }
 
+// ValidateToken implements JwtServiceInterface.
 func (j *jwtService) ValidateToken(encodetoken string) (*jwt.Token, error) {
 	return jwt.Parse(encodetoken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

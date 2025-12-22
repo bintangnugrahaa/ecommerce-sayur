@@ -29,7 +29,6 @@ func (m *middlewareAdapter) CheckToken() echo.MiddlewareFunc {
 			respErr := response.DefaultResponse{}
 			redisConn := config.NewConfig().NewRedisClient()
 			authHeader := c.Request().Header.Get("Authorization")
-
 			if authHeader == "" {
 				log.Errorf("[MiddlewareAdapter-1] CheckToken: %s", "missing or invalid token")
 				respErr.Message = "missing or invalid token"

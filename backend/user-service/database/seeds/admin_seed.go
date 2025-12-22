@@ -9,7 +9,7 @@ import (
 )
 
 func SeedAdmin(db *gorm.DB) {
-	bytes, err := conv.HashPassword("admin123")
+	bytes, err := conv.HashPassword("password")
 	if err != nil {
 		log.Fatalf("%s: %v", err.Error(), err)
 	}
@@ -22,13 +22,13 @@ func SeedAdmin(db *gorm.DB) {
 
 	admin := model.User{
 		Name:       "super admin",
-		Email:      "superadmin@mail.com",
+		Email:      "superadmin@gmail.com",
 		Password:   bytes,
 		IsVerified: true,
 		Roles:      []model.Role{modelRole},
 	}
 
-	if err := db.FirstOrCreate(&admin, model.User{Email: "superadmin@mail.com"}).Error; err != nil {
+	if err := db.FirstOrCreate(&admin, model.User{Email: "superadmin@gmail.com"}).Error; err != nil {
 		log.Fatalf("%s: %v", err.Error(), err)
 	} else {
 		log.Printf("Admin %s created", admin.Name)
