@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"user-service/database/seeds"
+	"user-service/internal/core/domain/model"
 
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
@@ -27,6 +28,7 @@ func (cfg Config) ConnectionPostgres() (*Postgres, error) {
 		return nil, err
 	}
 
+	db.AutoMigrate(&model.User{}, &model.Role{}, &model.UserRole{}, &model.VerificationToken{})
 	sqlDB, err := db.DB()
 	if err != nil {
 		log.Error().Err(err).Msg("[ConnectionPostgres-2] Failed to get database connection")

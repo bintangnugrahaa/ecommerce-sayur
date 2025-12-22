@@ -50,7 +50,6 @@ func (u *userRepository) DeleteCustomer(ctx context.Context, customerID int64) e
 		log.Errorf("[UserRepository-3] DeleteCustomer: %v", err)
 		return err
 	}
-
 	return nil
 }
 
@@ -211,7 +210,6 @@ func (u *userRepository) GetCustomerAll(ctx context.Context, query entity.QueryS
 			Photo:    val.Photo,
 		})
 	}
-
 	return respEntities, countData, int64(totalPage), nil
 }
 
@@ -223,8 +221,6 @@ func (u *userRepository) UpdateDataUser(ctx context.Context, req entity.UserEnti
 		Address: req.Address,
 		Phone:   req.Phone,
 		Photo:   req.Photo,
-		Lat:     req.Lat,
-		Lng:     req.Lng,
 	}
 
 	if err := u.db.Where("id = ? AND is_verified = true", req.ID).First(&modelUser).Error; err != nil {
@@ -237,7 +233,12 @@ func (u *userRepository) UpdateDataUser(ctx context.Context, req entity.UserEnti
 		return err
 	}
 
-	if err := u.db.Save(&modelUser).Error; err != nil {
+	modelUser.Lat = req.Lat
+	modelUser.Lng = req.Lng
+	modelUser.Address = req.Address
+	modelUser.Phone = req.Phone
+
+	if err := u.db.UpdateColumns(&modelUser).Error; err != nil {
 		log.Errorf("[UserRepository-3] UpdateDataUser: %v", err)
 		return err
 	}
@@ -276,7 +277,7 @@ func (u *userRepository) GetUserByID(ctx context.Context, userID int64) (*entity
 func (u *userRepository) UpdatePasswordByID(ctx context.Context, req entity.UserEntity) error {
 	modelUser := model.User{}
 
-	if err := u.db.Where("id = ?", req.ID).First(&modelUser).Error; err != nil {
+	if err := u.db.Where("id =?", req.ID).First(&modelUser).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			err = errors.New("404")
 			log.Errorf("[UserRepository-1] UpdatePasswordByID: %v", err)
@@ -369,6 +370,7 @@ func (u *userRepository) CreateUserAccount(ctx context.Context, req entity.UserE
 	return modelUser.ID, nil
 }
 
+// GetUserByEmail implements UserRepositoryInterface.
 func (u *userRepository) GetUserByEmail(ctx context.Context, email string) (*entity.UserEntity, error) {
 	modelUser := model.User{}
 
@@ -379,7 +381,7 @@ func (u *userRepository) GetUserByEmail(ctx context.Context, email string) (*ent
 			log.Infof("[UserRepository-1] GetUserByEmail: User not found")
 			return nil, err
 		}
-		log.Infof("[UserRepository-1] GetUserByEmail: User not found")
+		log.Errorf("[UserRepository-1] GetUserByEmail: %v", err)
 		return nil, err
 	}
 

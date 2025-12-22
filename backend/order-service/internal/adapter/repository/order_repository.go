@@ -26,11 +26,48 @@ type orderRepository struct {
 	db *gorm.DB
 }
 
+// GetOrderByOrderCode implements OrderRepositoryInterface.
+func (o *orderRepository) GetOrderByOrderCode(ctx context.Context, orderCode string) (*entity.OrderEntity, error) {
+	var modelOrder model.Order
+
+	if err := o.db.Preload("OrderItems").Where("order_code =?", orderCode).First(&modelOrder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[OrderRepository-1] GetOrderByOrderCode: Order not found")
+			return nil, err
+		}
+		log.Errorf("[OrderRepository-2] GetOrderByOrderCode: %v", err)
+		return nil, err
+	}
+
+	orderItemEntities := []entity.OrderItemEntity{}
+	for _, item := range modelOrder.OrderItems {
+		orderItemEntities = append(orderItemEntities, entity.OrderItemEntity{
+			ID:        item.ID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+		})
+	}
+
+	return &entity.OrderEntity{
+		ID:           modelOrder.ID,
+		OrderCode:    modelOrder.OrderCode,
+		Status:       modelOrder.Status,
+		BuyerID:      modelOrder.BuyerID,
+		OrderDate:    modelOrder.OrderDate.Format("2006-01-02 15:04:05"),
+		TotalAmount:  int64(modelOrder.TotalAmount),
+		OrderItems:   orderItemEntities,
+		Remarks:      modelOrder.Remarks,
+		ShippingType: modelOrder.ShippingType,
+		ShippingFee:  int64(modelOrder.ShippingFee),
+	}, nil
+}
+
 // CreateOrder implements OrderRepositoryInterface.
 func (o *orderRepository) CreateOrder(ctx context.Context, req entity.OrderEntity) (int64, error) {
-	orderDate, err := time.Parse("2006-01-02", req.OrderDate)
+	orderDate, err := time.Parse("2006-01-02", req.OrderDate) // YYYY-MM-DD
 	if err != nil {
-		log.Errorf("[OrderRepository] CreateOrder: %v", err)
+		log.Errorf("[OrderRepository-1] CreateOrder: %v", err)
 		return 0, err
 	}
 
@@ -43,7 +80,7 @@ func (o *orderRepository) CreateOrder(ctx context.Context, req entity.OrderEntit
 		orderItems = append(orderItems, orderItem)
 	}
 
-	newOrder := model.Order{
+	modelOrder := model.Order{
 		OrderCode:    req.OrderCode,
 		BuyerID:      req.BuyerID,
 		OrderDate:    orderDate,
@@ -56,20 +93,37 @@ func (o *orderRepository) CreateOrder(ctx context.Context, req entity.OrderEntit
 		OrderItems:   orderItems,
 	}
 
-	if err := o.db.Create(&newOrder).Error; err != nil {
-		log.Errorf("[OrderRepository] CreateOrder: %v", err)
+	if err := o.db.Create(&modelOrder).Error; err != nil {
+		log.Errorf("[OrderRepository-3] CreateOrder: %v", err)
 		return 0, err
 	}
 
-	return newOrder.ID, nil
+	return modelOrder.ID, nil
 }
 
 // DeleteOrder implements OrderRepositoryInterface.
 func (o *orderRepository) DeleteOrder(ctx context.Context, orderID int64) error {
-	panic("unimplemented")
+	modelOrder := model.Order{}
+
+	if err := o.db.Preload("OrderItems").Where("id = ?", orderID).First(&modelOrder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[OrderRepository-1] DeleteOrder: Order not found")
+			return err
+		}
+		log.Errorf("[OrderRepository-2] DeleteOrder: %v", err)
+		return err
+	}
+
+	if err := o.db.Select("OrderItems").Delete(&modelOrder).Error; err != nil {
+		log.Errorf("[OrderRepository-3] DeleteOrder: %v", err)
+		return err
+	}
+
+	return nil
 }
 
-// UpdateStatus implements OrderRepositoryInterface.
+// EditOrder implements OrderRepositoryInterface.
 func (o *orderRepository) UpdateStatus(ctx context.Context, req entity.OrderEntity) (int64, string, string, error) {
 	modelOrder := model.Order{}
 
@@ -146,9 +200,9 @@ func (o *orderRepository) GetAll(ctx context.Context, queryString entity.QuerySt
 
 	entities := []entity.OrderEntity{}
 	for _, val := range modelOrders {
-		orderItemsEntities := []entity.OrderItemEntity{}
+		orderItemEntities := []entity.OrderItemEntity{}
 		for _, item := range val.OrderItems {
-			orderItemsEntities = append(orderItemsEntities, entity.OrderItemEntity{
+			orderItemEntities = append(orderItemEntities, entity.OrderItemEntity{
 				ID:        item.ID,
 				ProductID: item.ProductID,
 				Quantity:  item.Quantity,
@@ -160,7 +214,7 @@ func (o *orderRepository) GetAll(ctx context.Context, queryString entity.QuerySt
 			Status:      val.Status,
 			OrderDate:   val.OrderDate.Format("2006-01-02 15:04:05"),
 			TotalAmount: int64(val.TotalAmount),
-			OrderItems:  orderItemsEntities,
+			OrderItems:  orderItemEntities,
 			BuyerID:     val.BuyerID,
 		})
 	}
@@ -168,17 +222,17 @@ func (o *orderRepository) GetAll(ctx context.Context, queryString entity.QuerySt
 	return entities, countData, int64(totalPage), nil
 }
 
-// GetOrderByOrderCode implements OrderRepositoryInterface.
-func (o *orderRepository) GetOrderByOrderCode(ctx context.Context, orderCode string) (*entity.OrderEntity, error) {
+// GetByID implements OrderRepositoryInterface.
+func (o *orderRepository) GetByID(ctx context.Context, orderID int64) (*entity.OrderEntity, error) {
 	var modelOrder model.Order
 
-	if err := o.db.Preload("OrderItems").Where("order_code =?", orderCode).First(&modelOrder).Error; err != nil {
+	if err := o.db.Preload("OrderItems").Where("id =?", orderID).First(&modelOrder).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			err = errors.New("404")
-			log.Infof("[OrderRepository-1] GetOrderByOrderCode: Order not found")
+			log.Infof("[OrderRepository-1] GetByID: Order not found")
 			return nil, err
 		}
-		log.Errorf("[OrderRepository-2] GetOrderByOrderCode: %v", err)
+		log.Errorf("[OrderRepository-2] GetByID: %v", err)
 		return nil, err
 	}
 
@@ -202,43 +256,6 @@ func (o *orderRepository) GetOrderByOrderCode(ctx context.Context, orderCode str
 		Remarks:      modelOrder.Remarks,
 		ShippingType: modelOrder.ShippingType,
 		ShippingFee:  int64(modelOrder.ShippingFee),
-	}, nil
-}
-
-// GetByID implements OrderRepositoryInterface.
-func (o *orderRepository) GetByID(ctx context.Context, orderID int64) (*entity.OrderEntity, error) {
-	var modelOrders model.Order
-
-	if err := o.db.Preload("OrderItems").Where("id =?", orderID).First(&modelOrders).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			err := errors.New("404")
-			log.Infof("[OrderRepository-1] GetByID: Order not found")
-			return nil, err
-		}
-		log.Errorf("[OrderRepository-2] GetByID: %v", err)
-		return nil, err
-	}
-
-	orderItemsEntities := []entity.OrderItemEntity{}
-	for _, item := range modelOrders.OrderItems {
-		orderItemsEntities = append(orderItemsEntities, entity.OrderItemEntity{
-			ID:        item.ID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-		})
-	}
-
-	return &entity.OrderEntity{
-		ID:           modelOrders.ID,
-		OrderCode:    modelOrders.OrderCode,
-		Status:       modelOrders.Status,
-		BuyerID:      modelOrders.BuyerID,
-		OrderDate:    modelOrders.OrderDate.Format("2006-01-02 15:04:05"),
-		TotalAmount:  int64(modelOrders.TotalAmount),
-		OrderItems:   orderItemsEntities,
-		Remarks:      modelOrders.Remarks,
-		ShippingType: modelOrders.ShippingType,
-		ShippingFee:  int64(modelOrders.ShippingFee),
 	}, nil
 }
 

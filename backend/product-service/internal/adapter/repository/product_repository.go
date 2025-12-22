@@ -19,7 +19,7 @@ import (
 type ProductRepositoryInterface interface {
 	GetAll(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error)
 	GetByID(ctx context.Context, productID int64) (*entity.ProductEntity, error)
-	Create(ctx context.Context, req entity.ProductEntity) error
+	Create(ctx context.Context, req entity.ProductEntity) (int64, error)
 	Update(ctx context.Context, req entity.ProductEntity) error
 	Delete(ctx context.Context, productID int64) error
 	SearchProducts(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error)
@@ -28,107 +28,6 @@ type ProductRepositoryInterface interface {
 type productRepository struct {
 	db       *gorm.DB
 	esClient *elasticsearch.Client
-}
-
-// SearchProducts implements ProductRepositoryInterface.
-func (p *productRepository) SearchProducts(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error) {
-	var mainQueries []string
-	var filterQueries []string
-	from := (query.Page - 1) * query.Limit
-
-	sortField := "id"
-	if query.OrderBy != "" {
-		sortField = query.OrderBy
-	}
-
-	// Menentukan urutan sorting (asc atau desc)
-	sortOrder := "asc"
-	if query.OrderType == "desc" {
-		sortOrder = "desc"
-	}
-
-	// Menyusun bagian sort query
-	sortQuery := fmt.Sprintf(`{ "%s": "%s" }`, sortField, sortOrder)
-
-	if query.CategorySlug != "" {
-		filterQueries = append(filterQueries, fmt.Sprintf(`{ "term": { "category_slug.keyword": "%s" } }`, query.CategorySlug))
-	}
-
-	if query.StartPrice > 0 && query.EndPrice > 0 {
-		filterQueries = append(filterQueries, fmt.Sprintf(`{ "range": { "reguler_price": { "gte": %d, "lte": %d } } }`, query.StartPrice, query.EndPrice))
-	}
-
-	if query.Search != "" {
-		mainQueries = append(mainQueries, fmt.Sprintf(`{ "multi_match": { "query": "%s", "fields": ["name", "description", "category_name"] } }`, query.Search))
-	}
-
-	// Query Elasticsearch dengan filtering dan pagination
-	mainQuery := fmt.Sprintf(`{
-		"from": %d,
-		"size": %d,
-		"query": {
-			"bool": {
-				"must": [
-					%s
-				],
-				"filter": [ 
-					%s
-				]
-			}
-		},
-		"sort": [
-			%s
-		]
-	}`, from, query.Limit, strings.Join(mainQueries, ","), strings.Join(filterQueries, ","), sortQuery)
-
-	// Query Elasticsearch dengan filtering dan pagination
-	// Kirim query ke Elasticsearch
-	res, err := p.esClient.Search(
-		p.esClient.Search.WithContext(ctx),
-		p.esClient.Search.WithIndex("products"),
-		p.esClient.Search.WithBody(strings.NewReader(mainQuery)),
-		p.esClient.Search.WithPretty(),
-	)
-
-	if err != nil {
-		log.Printf("Error searching Elasticsearch: %s", err)
-		return nil, 0, 0, err
-	}
-	defer res.Body.Close()
-
-	// Decode response
-	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-		log.Printf("Error decoding response: %s", err)
-		return nil, 0, 0, err
-	}
-
-	// Ambil total data
-	totalData := 0
-	if hitsTotal, found := result["hits"].(map[string]interface{})["total"].(map[string]interface{}); found {
-		totalData = int(hitsTotal["value"].(float64))
-	}
-
-	// Hitung total halaman
-	totalPage := 0
-	if query.Limit > 0 {
-		totalPage = int(math.Ceil(float64(totalData) / float64(query.Limit)))
-	}
-
-	// Parsing hasil pencarian ke struct domain.Product
-	products := []entity.ProductEntity{}
-	hits, found := result["hits"].(map[string]interface{})["hits"].([]interface{})
-	if found {
-		for _, hit := range hits {
-			source := hit.(map[string]interface{})["_source"]
-			data, _ := json.Marshal(source)
-			var product entity.ProductEntity
-			json.Unmarshal(data, &product)
-			products = append(products, product)
-		}
-	}
-
-	return products, int64(totalData), int64(totalPage), nil
 }
 
 // Delete implements ProductRepositoryInterface.
@@ -228,7 +127,7 @@ func (p *productRepository) Update(ctx context.Context, req entity.ProductEntity
 }
 
 // Create implements ProductRepositoryInterface.
-func (p *productRepository) Create(ctx context.Context, req entity.ProductEntity) error {
+func (p *productRepository) Create(ctx context.Context, req entity.ProductEntity) (int64, error) {
 	modelProduct := model.Product{
 		CategorySlug: req.CategorySlug,
 		ParentID:     req.ParentID,
@@ -246,7 +145,7 @@ func (p *productRepository) Create(ctx context.Context, req entity.ProductEntity
 
 	if err := p.db.Create(&modelProduct).Error; err != nil {
 		log.Errorf("[ProductRepository-1] Create: %v", err)
-		return err
+		return 0, err
 	}
 
 	if len(req.Child) > 0 {
@@ -270,11 +169,11 @@ func (p *productRepository) Create(ctx context.Context, req entity.ProductEntity
 
 		if err := p.db.Create(&modelProductChild).Error; err != nil {
 			log.Errorf("[ProductRepository-2] Create: %v", err)
-			return err
+			return 0, err
 		}
 	}
 
-	return nil
+	return modelProduct.ID, nil
 }
 
 // GetByID implements ProductRepositoryInterface.
@@ -336,6 +235,107 @@ func (p *productRepository) GetByID(ctx context.Context, productID int64) (*enti
 		Child:        childEntities,
 		CreatedAt:    modelProduct.CreatedAt,
 	}, nil
+}
+
+// GetAll implements ProductRepositoryInterface.
+func (p *productRepository) SearchProducts(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error) {
+	var mainQueries []string
+	var filterQueries []string
+	from := (query.Page - 1) * query.Limit
+
+	sortField := "id"
+	if query.OrderBy != "" {
+		sortField = query.OrderBy
+	}
+
+	// Menentukan urutan sorting (asc atau desc)
+	sortOrder := "asc"
+	if query.OrderType == "desc" {
+		sortOrder = "desc"
+	}
+
+	// Menyusun bagian sort query
+	sortQuery := fmt.Sprintf(`{ "%s": "%s" }`, sortField, sortOrder)
+
+	if query.CategorySlug != "" {
+		filterQueries = append(filterQueries, fmt.Sprintf(`{ "term": { "category_slug.keyword": "%s" } }`, query.CategorySlug))
+	}
+
+	if query.StartPrice > 0 && query.EndPrice > 0 {
+		filterQueries = append(filterQueries, fmt.Sprintf(`{ "range": { "reguler_price": { "gte": %d, "lte": %d } } }`, query.StartPrice, query.EndPrice))
+	}
+
+	if query.Search != "" {
+		mainQueries = append(mainQueries, fmt.Sprintf(`{ "multi_match": { "query": "%s", "fields": ["name", "description", "category_name"] } }`, query.Search))
+	}
+
+	// Query Elasticsearch dengan filtering dan pagination
+	mainQuery := fmt.Sprintf(`{
+		"from": %d,
+		"size": %d,
+		"query": {
+			"bool": {
+				"must": [
+					%s
+				],
+				"filter": [ 
+					%s
+				]
+			}
+		},
+		"sort": [
+			%s
+		]
+	}`, from, query.Limit, strings.Join(mainQueries, ","), strings.Join(filterQueries, ","), sortQuery)
+
+	// Query Elasticsearch dengan filtering dan pagination
+	// Kirim query ke Elasticsearch
+	res, err := p.esClient.Search(
+		p.esClient.Search.WithContext(ctx),
+		p.esClient.Search.WithIndex("products"),
+		p.esClient.Search.WithBody(strings.NewReader(mainQuery)),
+		p.esClient.Search.WithPretty(),
+	)
+
+	if err != nil {
+		log.Printf("Error searching Elasticsearch: %s", err)
+		return nil, 0, 0, err
+	}
+	defer res.Body.Close()
+
+	// Decode response
+	var result map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+		log.Printf("Error decoding response: %s", err)
+		return nil, 0, 0, err
+	}
+
+	// Ambil total data
+	totalData := 0
+	if hitsTotal, found := result["hits"].(map[string]interface{})["total"].(map[string]interface{}); found {
+		totalData = int(hitsTotal["value"].(float64))
+	}
+
+	// Hitung total halaman
+	totalPage := 0
+	if query.Limit > 0 {
+		totalPage = int(math.Ceil(float64(totalData) / float64(query.Limit)))
+	}
+
+	// Parsing hasil pencarian ke struct domain.Product
+	products := []entity.ProductEntity{}
+	hits, found := result["hits"].(map[string]interface{})["hits"].([]interface{})
+	if found {
+		for _, hit := range hits {
+			source := hit.(map[string]interface{})["_source"]
+			data, _ := json.Marshal(source)
+			var product entity.ProductEntity
+			json.Unmarshal(data, &product)
+			products = append(products, product)
+		}
+	}
+
+	return products, int64(totalData), int64(totalPage), nil
 }
 
 // GetAll implements ProductRepositoryInterface.

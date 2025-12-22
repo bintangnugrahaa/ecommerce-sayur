@@ -2,11 +2,11 @@ package app
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"product-service/config"
 	"product-service/internal/adapter/handlers"
+	"product-service/internal/adapter/message"
 	"product-service/internal/adapter/repository"
 	"product-service/internal/adapter/storage"
 	"product-service/internal/core/service"
@@ -17,6 +17,7 @@ import (
 	"github.com/go-playground/validator/v10/translations/en"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 )
 
 func RunServer() {
@@ -34,12 +35,13 @@ func RunServer() {
 	}
 
 	storageHandler := storage.NewSupabase(cfg)
+	publisherRabbitMQ := message.NewPublishRabbitMQ(cfg)
 
 	categoryRepo := repository.NewCategoryRepository(db.DB)
 	productRepo := repository.NewProductRepository(db.DB, elasticInit)
 
 	categoryService := service.NewCategoryService(categoryRepo)
-	productService := service.NewProductService(productRepo)
+	productService := service.NewProductService(productRepo, publisherRabbitMQ, categoryRepo)
 
 	e := echo.New()
 	e.Use(middleware.CORS())
