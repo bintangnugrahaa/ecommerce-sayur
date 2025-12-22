@@ -25,7 +25,6 @@ type notificationHandler struct {
 	service service.NotificationServiceInterface
 }
 
-// MarkAsRead implements [NotificationHandlerInterface].
 func (h *notificationHandler) MarkAsRead(c echo.Context) error {
 	var (
 		ctx = c.Request().Context()
@@ -55,7 +54,7 @@ func (h *notificationHandler) MarkAsRead(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.Response("success", nil))
 }
 
-// GetByID implements [NotificationHandlerInterface].
+// GetByID implements NotificationHandlerInterface.
 func (n *notificationHandler) GetByID(c echo.Context) error {
 	var (
 		ctx        = c.Request().Context()
@@ -95,7 +94,7 @@ func (n *notificationHandler) GetByID(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.Response("success", respDetail))
 }
 
-// GetAll implements [NotificationHandlerInterface].
+// GetAll implements NotificationHandlerInterface.
 func (n *notificationHandler) GetAll(c echo.Context) error {
 	var (
 		ctx         = c.Request().Context()

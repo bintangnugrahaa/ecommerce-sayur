@@ -22,7 +22,7 @@ type consumeRabbitMQ struct {
 	notificationService service.NotificationServiceInterface
 }
 
-// ConsumeMessage implements [ConsumeRabbitMQInterface].
+// ConsumeMessage implements ConsumeRabbitMQInterface.
 func (c *consumeRabbitMQ) ConsumeMessage(queueName string) error {
 	conn, err := config.NewConfig().NewRabbitMQ()
 	if err != nil {

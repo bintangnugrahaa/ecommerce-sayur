@@ -14,7 +14,7 @@ import (
 )
 
 type NotificationRepositoryInterface interface {
-	GetAll(ctx context.Context, queryString entity.NotifyQueryString) ([]entity.NotificationEntity, int64, int64, error)
+	GetAll(ctx context.Context, query entity.NotifyQueryString) ([]entity.NotificationEntity, int64, int64, error)
 	GetByID(ctx context.Context, notifID uint) (*entity.NotificationEntity, error)
 	CreateNotification(ctx context.Context, notification entity.NotificationEntity) error
 	MarkAsSent(notifID uint) error
@@ -25,7 +25,7 @@ type notificationRepository struct {
 	db *gorm.DB
 }
 
-// MarkAsRead implements [NotificationRepositoryInterface].
+// MarkAsRead implements NotificationRepositoryInterface.
 func (n *notificationRepository) MarkAsRead(ctx context.Context, notifID uint) error {
 	modelNotif := model.Notification{}
 	if err := n.db.First(&modelNotif, notifID).Error; err != nil {
@@ -47,7 +47,7 @@ func (n *notificationRepository) MarkAsRead(ctx context.Context, notifID uint) e
 	return nil
 }
 
-// MarkAsSent implements [NotificationRepositoryInterface].
+// MarkAsSent implements NotificationRepositoryInterface.
 func (n *notificationRepository) MarkAsSent(notifID uint) error {
 	modelNotif := model.Notification{}
 
@@ -70,7 +70,7 @@ func (n *notificationRepository) MarkAsSent(notifID uint) error {
 	return nil
 }
 
-// CreateNotification implements [NotificationRepositoryInterface].
+// CreateNotification implements NotificationRepositoryInterface.
 func (n *notificationRepository) CreateNotification(ctx context.Context, notification entity.NotificationEntity) error {
 	now := time.Now()
 	modelNotif := model.Notification{
@@ -90,7 +90,7 @@ func (n *notificationRepository) CreateNotification(ctx context.Context, notific
 	return nil
 }
 
-// GetByID implements [NotificationRepositoryInterface].
+// GetByID implements NotificationRepositoryInterface.
 func (n *notificationRepository) GetByID(ctx context.Context, notifID uint) (*entity.NotificationEntity, error) {
 	modelNotif := model.Notification{}
 
@@ -115,7 +115,7 @@ func (n *notificationRepository) GetByID(ctx context.Context, notifID uint) (*en
 	}, nil
 }
 
-// GetAll implements [NotificationRepositoryInterface].
+// GetAll implements NotificationRepositoryInterface.
 func (n *notificationRepository) GetAll(ctx context.Context, queryString entity.NotifyQueryString) ([]entity.NotificationEntity, int64, int64, error) {
 	modelNotifes := []model.Notification{}
 

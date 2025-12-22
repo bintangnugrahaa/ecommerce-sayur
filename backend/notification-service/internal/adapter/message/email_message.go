@@ -21,7 +21,7 @@ type emailAttribute struct {
 	IsTls    bool
 }
 
-// SendEmailNotif implements [MessageEmailInterface].
+// SendEmailNotif implements MessageEmailInterface.
 func (e *emailAttribute) SendEmailNotif(to string, subject string, body string) error {
 	m := mail.NewMessage()
 	m.SetHeader("From", e.From)

@@ -20,12 +20,12 @@ type NotificationService struct {
 	repo repository.NotificationRepositoryInterface
 }
 
-// MarkAsRead implements [NotificationServiceInterface].
+// MarkAsRead implements NotificationServiceInterface.
 func (n *NotificationService) MarkAsRead(ctx context.Context, notifID uint) error {
 	return n.repo.MarkAsRead(ctx, notifID)
 }
 
-// SendPushNotification implements [NotificationServiceInterface].
+// SendPushNotification implements NotificationServiceInterface.
 func (n *NotificationService) SendPushNotification(ctx context.Context, notif entity.NotificationEntity) {
 	if notif.ReceiverID == nil {
 		return
@@ -52,12 +52,12 @@ func (n *NotificationService) SendPushNotification(ctx context.Context, notif en
 	}
 }
 
-// GetByID implements [NotificationServiceInterface].
+// GetByID implements NotificationServiceInterface.
 func (n *NotificationService) GetByID(ctx context.Context, notifID uint) (*entity.NotificationEntity, error) {
 	return n.repo.GetByID(ctx, notifID)
 }
 
-// GetAll implements [NotificationServiceInterface].
+// GetAll implements NotificationServiceInterface.
 func (n *NotificationService) GetAll(ctx context.Context, queryString entity.NotifyQueryString) ([]entity.NotificationEntity, int64, int64, error) {
 	return n.repo.GetAll(ctx, queryString)
 }

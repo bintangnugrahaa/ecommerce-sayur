@@ -22,8 +22,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// WebSocketHandler implements [WebSocketHandlerInterface].
-func (w *webSocketHandler) WebSocketHandler(c echo.Context) error {
+func (ws *webSocketHandler) WebSocketHandler(c echo.Context) error {
 	userIDStr := c.QueryParam("user_id")
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
