@@ -38,14 +38,48 @@ func (p *productService) Create(ctx context.Context, req entity.ProductEntity) e
 		return err
 	}
 
-	getProductByID, err := p.GetByID(ctx, productID)
+	getProductByID, err := p.repo.GetByID(ctx, productID)
 	if err != nil {
 		log.Errorf("[ProductService-2] Create: %v", err)
 	}
 
-	if err := p.publisherRabbitMQ.PublishProductToQueue(*getProductByID); err != nil {
-		log.Errorf("[ProductService-3] Create: %v", err)
+	reqProductSnapshot := map[string]interface{}{
+		"id":            getProductByID.ID,
+		"name":          getProductByID.Name,
+		"stock":         getProductByID.Stock,
+		"image":         getProductByID.Image,
+		"reguler_price": getProductByID.RegulerPrice,
+		"sale_price":    getProductByID.SalePrice,
+		"unit":          getProductByID.Unit,
+		"weight":        getProductByID.Weight,
+		"created_at":    getProductByID.CreatedAt,
 	}
+
+	if len(getProductByID.Child) > 0 {
+		for key, child := range getProductByID.Child {
+			if reqProductSnapshot["child"] == nil {
+				reqProductSnapshot["child"] = make([]map[string]interface{}, len(getProductByID.Child))
+			}
+
+			childMap := reqProductSnapshot["child"].([]map[string]interface{})
+			childMap[key] = map[string]interface{}{
+				"id":            child.ID,
+				"name":          child.Name,
+				"stock":         child.Stock,
+				"image":         child.Image,
+				"reguler_price": child.RegulerPrice,
+				"sale_price":    child.SalePrice,
+				"unit":          child.Unit,
+				"weight":        child.Weight,
+				"created_at":    child.CreatedAt,
+			}
+		}
+	}
+
+	go func() {
+		p.publisherRabbitMQ.PublishProductToQueue(*getProductByID)
+		p.publisherRabbitMQ.PublishProductToOrderService(reqProductSnapshot)
+	}()
 
 	return nil
 }

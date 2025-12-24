@@ -13,10 +13,55 @@ import (
 type PublishRabbitMQInterface interface {
 	PublishProductToQueue(product entity.ProductEntity) error
 	DeleteProductFromQueue(productID int64) error
+	PublishProductToOrderService(product interface{})
 }
 
 type PublishRabbitMQ struct {
 	cfg *config.Config
+}
+
+// PublishProductToOrderService implements [PublishRabbitMQInterface].
+func (p *PublishRabbitMQ) PublishProductToOrderService(product interface{}) {
+	conn, err := p.cfg.NewRabbitMQ()
+	if err != nil {
+		log.Errorf("[PublishProductToOrderService-1] Failed to connect to RabbitMQ: %v", err)
+	}
+
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Errorf("[PublishProductToOrderService-2] Failed to open a channel: %v", err)
+	}
+
+	defer ch.Close()
+
+	q, err := ch.QueueDeclare(
+		p.cfg.PublisherName.ProductToOrder,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Errorf("[PublishProductToOrderService-3] Failed to declare queue: %v", err)
+	}
+
+	data, _ := json.Marshal(product)
+	err = ch.Publish(
+		"",
+		q.Name,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        data,
+		},
+	)
+	if err != nil {
+		log.Errorf("[PublishProductToOrderService-4] Failed to publish message: %v", err)
+	}
 }
 
 func NewPublishRabbitMQ(cfg *config.Config) PublishRabbitMQInterface {

@@ -34,7 +34,8 @@ func RunServer() {
 		return
 	}
 
-	orderRepo := repository.NewOrderRepository(db.DB)
+	productSnapshotRepo := repository.NewProductSnapshotRepository(db.DB)
+	orderRepo := repository.NewOrderRepository(db.DB, productSnapshotRepo)
 	elasticRepo := repository.NewElasticRepository(elasticInit)
 
 	httpClient := httpclient.NewHttpClient(cfg)

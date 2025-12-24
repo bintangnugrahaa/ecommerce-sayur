@@ -15,7 +15,7 @@ import (
 
 type ElasticRepositoryInterface interface {
 	SearchOrderElastic(ctx context.Context, queryString entity.QueryStringEntity) ([]entity.OrderEntity, int64, int64, error)
-	SearchOrderElasticByBuyerId(ctx context.Context, queryString entity.QueryStringEntity, buyerId int64) ([]entity.OrderEntity, int64, int64, error)
+	SearchOrderElasticByBuyerID(ctx context.Context, queryString entity.QueryStringEntity, buyerId int64) ([]entity.OrderEntity, int64, int64, error)
 }
 
 type elasticRepository struct {
@@ -26,8 +26,8 @@ func NewElasticRepository(es *elasticsearch.Client) ElasticRepositoryInterface {
 	return &elasticRepository{esClient: es}
 }
 
-// SearchOrderElasticByBuyerId implements ElasticRepositoryInterface.
-func (e *elasticRepository) SearchOrderElasticByBuyerId(ctx context.Context, query entity.QueryStringEntity, buyerId int64) ([]entity.OrderEntity, int64, int64, error) {
+// SearchOrderElasticByBuyerID implements ElasticRepositoryInterface.
+func (e *elasticRepository) SearchOrderElasticByBuyerID(ctx context.Context, query entity.QueryStringEntity, buyerId int64) ([]entity.OrderEntity, int64, int64, error) {
 	from := (query.Page - 1) * query.Limit
 
 	statusFilter := ""

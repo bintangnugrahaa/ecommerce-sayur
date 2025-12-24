@@ -20,5 +20,11 @@ type Order struct {
 	CreatedAt    time.Time      `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
 	UpdatedAt    *time.Time     `gorm:"column:updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"column:deleted_at;index"`
+	BuyerName    string         `gorm:"column:buyer_name;size:255"`
+	BuyerEmail   string         `gorm:"column:buyer_email;size:255"`
+	BuyerPhone   string         `gorm:"column:buyer_phone;size:20"`
+	BuyerAddress string         `gorm:"column:buyer_address"`
+	BuyerLat     string         `gorm:"column:buyer_lat;size:20"`
+	BuyerLng     string         `gorm:"column:buyer_lng;size:20"`
 	OrderItems   []OrderItem    `gorm:"foreignKey:OrderID"`
 }
