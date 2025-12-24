@@ -26,6 +26,8 @@ type PaymentServiceInterface interface {
 type paymentService struct {
 	repo                repository.PaymentRepositoryInterface
 	httpClientToService httpclient.HttpClientToService
+	orderSnapshotRepo   repository.OrderSnapshotRepositoryInterface
+	userSnapshotRepo    repository.UserSnapshotRepositoryInterface
 	midtrans            httpclient.MidtransClientInterface
 	cfg                 *config.Config
 	publisherRabbitMQ   message.PublishRabbitMQInterface
@@ -51,7 +53,7 @@ func (p *paymentService) GetDetail(ctx context.Context, paymentID uint, accessTo
 		userID = 0
 	}
 
-	orderDetail, err := p.httpClientOrderService(int64(result.OrderID), token["token"].(string))
+	orderDetail, err := p.getOrderDetailWithSnapshot(int64(result.OrderID), token["token"].(string))
 	if err != nil {
 		log.Errorf("[PaymentService] GetDetail-3: %v", err)
 		return nil, err
@@ -62,7 +64,7 @@ func (p *paymentService) GetDetail(ctx context.Context, paymentID uint, accessTo
 		isAdmin = true
 	}
 
-	userDetail, err := p.httpClientUserService(token["token"].(string), userID, isAdmin)
+	userDetail, err := p.getUserDetailWithSnapshot(token["token"].(string), userID, isAdmin)
 	if err != nil {
 		log.Errorf("[PaymentService] GetDetail-4: %v", err)
 		return nil, err
@@ -95,7 +97,7 @@ func (p *paymentService) GetAll(ctx context.Context, req entity.PaymentQueryStri
 		return nil, 0, 0, err
 	}
 	for key, val := range results {
-		orderDetail, err := p.httpClientOrderService(int64(val.OrderID), token["token"].(string))
+		orderDetail, err := p.getOrderDetailWithSnapshot(int64(val.OrderID), token["token"].(string))
 		if err != nil {
 			log.Errorf("[PaymentService] GetAll-3: %v", err)
 			return nil, 0, 0, err
@@ -257,36 +259,6 @@ func (p *paymentService) httpClientUserService(accessToken string, userID int64,
 	return &userResponse.Data, nil
 }
 
-func (p *paymentService) httpClientOrderByCodeService(orderCode string, accessToken string) (*entity.OrderDetailHttpResponse, error) {
-	baseUrlOrder := fmt.Sprintf("%s/%s", p.cfg.App.OrderServiceUrl, "auth/orders/"+orderCode+"/code")
-	header := map[string]string{
-		"Authorization": "Bearer " + accessToken,
-		"Accept":        "application/json",
-	}
-	dataOrder, err := p.httpClientToService.CallURL("GET", baseUrlOrder, header, nil)
-	if err != nil {
-		log.Errorf("[PaymentService] httpClientOrderByCodeService-1: %v", err)
-		return nil, err
-	}
-
-	defer dataOrder.Body.Close()
-
-	body, err := io.ReadAll(dataOrder.Body)
-	if err != nil {
-		log.Errorf("[PaymentService] httpClientOrderByCodeService-2: %v", err)
-		return nil, err
-	}
-
-	var orderDetail entity.OrderHttpClientResponse
-	err = json.Unmarshal([]byte(body), &orderDetail)
-	if err != nil {
-		log.Errorf("[PaymentService] httpClientOrderByCodeService-3: %v", err)
-		return nil, err
-	}
-
-	return &orderDetail.Data, nil
-}
-
 func (p *paymentService) httpClientPublicOrderIDByCodeService(orderCode string) (int64, error) {
 	baseUrlOrder := fmt.Sprintf("%s/%s", p.cfg.App.OrderServiceUrl, "public/orders/"+orderCode+"/code")
 	header := map[string]string{
@@ -321,12 +293,81 @@ func (p *paymentService) httpClientPublicOrderIDByCodeService(orderCode string) 
 	return int64(orderDetail.Data.OrderID), nil
 }
 
-func NewPaymentService(repo repository.PaymentRepositoryInterface, cfg *config.Config, httpClientToService httpclient.HttpClientToService, midtrans httpclient.MidtransClientInterface, publisherRabbitMQ message.PublishRabbitMQInterface) PaymentServiceInterface {
+func NewPaymentService(repo repository.PaymentRepositoryInterface, cfg *config.Config, orderSnapshotRepo repository.OrderSnapshotRepositoryInterface, userSnapshotRepo repository.UserSnapshotRepositoryInterface, httpClientToService httpclient.HttpClientToService, midtrans httpclient.MidtransClientInterface, publisherRabbitMQ message.PublishRabbitMQInterface) PaymentServiceInterface {
 	return &paymentService{
 		repo:                repo,
 		httpClientToService: httpClientToService,
 		midtrans:            midtrans,
 		cfg:                 cfg,
 		publisherRabbitMQ:   publisherRabbitMQ,
+		orderSnapshotRepo:   orderSnapshotRepo,
+		userSnapshotRepo:    userSnapshotRepo,
 	}
+}
+
+func (p *paymentService) getOrderDetailWithSnapshot(orderID int64, accessToken string) (*entity.OrderDetailHttpResponse, error) {
+	if snapshot, err := p.orderSnapshotRepo.GetByOrderID(orderID); err == nil {
+		p.orderSnapshotRepo.UpdateLastUsed(orderID)
+
+		// convert snapshot to entity
+		return &entity.OrderDetailHttpResponse{
+			ID:            snapshot.OrderID,
+			OrderCode:     snapshot.OrderCode,
+			OrderDatetime: snapshot.OrderDatetime,
+			Status:        snapshot.Status,
+			PaymentMethod: snapshot.PaymentMethod,
+			ShippingFee:   snapshot.ShippingFee,
+			ShippingType:  snapshot.ShippingType,
+			Remarks:       snapshot.Remarks,
+			TotalAmount:   snapshot.TotalAmount,
+			Customer: entity.CustomerOrder{
+				CustomerName:    snapshot.CustomerName,
+				CustomerPhone:   snapshot.CustomerPhone,
+				CustomerAddress: snapshot.CustomerAddress,
+				CustomerEmail:   snapshot.CustomerEmail,
+				CustomerID:      snapshot.CustomerID,
+			},
+		}, nil
+	}
+
+	// If not in snapshot, fetch from service
+	orderDetail, err := p.httpClientOrderService(orderID, accessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in snapshot
+	p.orderSnapshotRepo.Create(orderDetail)
+	return orderDetail, nil
+}
+
+func (p *paymentService) getUserDetailWithSnapshot(accessToken string, userID int64, isAdmin bool) (*entity.ProfileHttpResponse, error) {
+	// Check snapshot first
+	if snapshot, err := p.userSnapshotRepo.GetByUserID(userID); err == nil {
+		// Update last used
+		p.userSnapshotRepo.UpdateLastUsed(userID)
+
+		// Convert snapshot to entity
+		return &entity.ProfileHttpResponse{
+			ID:       snapshot.UserID,
+			Name:     snapshot.Name,
+			Email:    snapshot.Email,
+			Phone:    snapshot.Phone,
+			Address:  snapshot.Address,
+			Photo:    snapshot.Photo,
+			RoleName: snapshot.RoleName,
+			Lat:      snapshot.Lat,
+			Lng:      snapshot.Lng,
+		}, nil
+	}
+
+	// If not in snapshot, fetch from service
+	userDetail, err := p.httpClientUserService(accessToken, userID, isAdmin)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in snapshot
+	p.userSnapshotRepo.Create(userDetail)
+	return userDetail, nil
 }

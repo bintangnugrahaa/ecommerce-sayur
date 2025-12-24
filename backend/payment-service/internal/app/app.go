@@ -29,13 +29,15 @@ func RunServer() {
 	}
 
 	paymentRepo := repository.NewPaymentRepository(db.DB)
+	orderSnapshotRepo := repository.NewOrderSnapshotRepository(db.DB)
+	userSnapshotRepo := repository.NewUserSnapshotRepository(db.DB)
 
 	httpClient := httpclient.NewHttpClient(cfg)
 	midtrans := httpclient.NewMidtransClient(cfg)
 
 	publisherRabbitMQ := message.NewPublisherRabbitMQ(cfg)
 
-	paymentService := service.NewPaymentService(paymentRepo, cfg, httpClient, midtrans, publisherRabbitMQ)
+	paymentService := service.NewPaymentService(paymentRepo, cfg, orderSnapshotRepo, userSnapshotRepo, httpClient, midtrans, publisherRabbitMQ)
 
 	e := echo.New()
 	e.Use(middleware.CORS())
