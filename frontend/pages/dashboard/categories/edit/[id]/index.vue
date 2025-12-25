@@ -71,7 +71,7 @@
                   <input type="text"
                     v-model="form.name"
                     class="border border-gray-300 text-gray-900 rounded-lg focus:shadow-[0_0_0_.25rem_rgba(10,173,10,.25)] focus:ring-green-600 focus:ring-0 focus:border-green-600 block p-2 px-3 disabled:opacity-50 disabled:pointer-events-none w-full text-base"
-                    id="creatCustomerName" placeholder="Customer Name" required />
+                    id="creatCustomerName" placeholder="Category Name" required />
                   <div class="invalid-feedback">Please enter category name</div>
                 </div>
               </div>

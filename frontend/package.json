@@ -30,6 +30,7 @@
     "eslint": "^9.0.0",
     "nouislider": "^15.8.1",
     "nuxt": "^3.16.2",
+    "pinia": "^3.0.4",
     "quill": "^2.0.3",
     "simplebar": "^6.3.0",
     "swiper": "^11.2.6",
