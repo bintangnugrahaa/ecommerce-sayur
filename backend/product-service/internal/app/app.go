@@ -18,6 +18,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+
+	middlewareGateway "product-service/internal/middleware"
 )
 
 func RunServer() {
@@ -47,6 +49,7 @@ func RunServer() {
 
 	e := echo.New()
 	e.Use(middleware.CORS())
+	e.Use(middlewareGateway.GatewayValidationMiddleware())
 
 	customValidator := validator.NewValidator()
 	en.RegisterDefaultTranslations(customValidator.Validator, customValidator.Translator)
